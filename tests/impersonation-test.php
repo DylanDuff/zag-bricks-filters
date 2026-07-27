@@ -74,6 +74,14 @@ namespace Bricks {
 	 * mirroring the real branches at filter-base.php:1136 / :1374 / :1762.
 	 */
 	class Filter_Element extends Element {
+		// Records the name in force when the parent runs, which is the whole
+		// point of the impersonation.
+		public static $count_name_seen = null;
+
+		public function set_options_with_count() {
+			self::$count_name_seen = $this->name;
+		}
+
 		public function get_filter_controls() {
 			if ( ! in_array( $this->name, Query_Filters::filter_controls_elements(), true ) ) {
 				return [];
@@ -162,6 +170,26 @@ namespace {
 	$multi = new Zag\Element_Zag_Filter_Select();
 	$multi->settings = [ 'zagMultiple' => true ];
 	check( 'multi-select impersonates filter-checkbox', $multi->impersonates(), 'filter-checkbox' );
+
+	// --- 2b. Counting impersonation ----------------------------------------
+	// AND-logic counting in filter-base.php is gated on 'filter-checkbox' in
+	// three places; multi-select has to be counted under that name or options
+	// that can only return zero results still look available.
+	$multi->set_options_with_count();
+	check(
+		'multi-select is counted as filter-checkbox',
+		Bricks\Filter_Element::$count_name_seen,
+		'filter-checkbox'
+	);
+	check( 'name restored after counting', $multi->name, 'zag-filter-select' );
+
+	// Single select wants the non-checkbox branch, so it must NOT spoof.
+	$single->set_options_with_count();
+	check(
+		'single select is counted under its own name',
+		Bricks\Filter_Element::$count_name_seen,
+		'zag-filter-select'
+	);
 
 	// --- 3. Index injection replay ----------------------------------------
 	$bridge = new Zag\Query_Filters_Bridge();

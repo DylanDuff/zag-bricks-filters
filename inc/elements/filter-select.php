@@ -167,6 +167,37 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 	}
 
 	/**
+	 * Count options with the combine logic a multi-select actually uses.
+	 *
+	 * set_options_with_count() branches on $this->name in three places
+	 * (filter-base.php:581, :697, :701), all gated on 'filter-checkbox', and all
+	 * three are what make AND logic count correctly: including our own clause in
+	 * the count source, counting against filtered_source, and — via
+	 * not_found_option_as_zero — disabling options that would return nothing.
+	 *
+	 * Without the spoof, counts are computed as though the logic were OR, so
+	 * combinations that can only ever return zero results still look available
+	 * and the conflict is only discovered after selecting.
+	 *
+	 * Single-select deliberately doesn't spoof: it wants the non-checkbox branch
+	 * at :697, which is already what our real name selects.
+	 */
+	public function set_options_with_count() {
+		if ( ! $this->is_multiple() ) {
+			parent::set_options_with_count();
+
+			return;
+		}
+
+		$real_name  = $this->name;
+		$this->name = 'filter-checkbox';
+
+		parent::set_options_with_count();
+
+		$this->name = $real_name;
+	}
+
+	/**
 	 * Prepare sources, populate options, and emit the data-brx-filter payload
 	 * Bricks' frontend reads to register this as a filter instance.
 	 *
