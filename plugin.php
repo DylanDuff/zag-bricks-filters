@@ -78,6 +78,12 @@ add_action(
 			'zag-filter-select',
 			__NAMESPACE__ . '\Element_Zag_Filter_Select'
 		);
+
+		\Bricks\Elements::register_element(
+			ZAG_PATH . 'inc/elements/filter-datepicker.php',
+			'zag-filter-datepicker',
+			__NAMESPACE__ . '\Element_Zag_Filter_Datepicker'
+		);
 	},
 	20
 );
