@@ -48,7 +48,8 @@ function version() {
  */
 function element_map() {
 	return [
-		'zag-filter-select' => 'filter-select',
+		'zag-filter-select'     => 'filter-select',
+		'zag-filter-datepicker' => 'filter-datepicker',
 	];
 }
 

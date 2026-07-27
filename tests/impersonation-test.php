@@ -119,7 +119,10 @@ namespace Bricks {
 // Normally lives in plugin.php, which we don't load here.
 namespace Zag {
 	function element_map() {
-		return [ 'zag-filter-select' => 'filter-select' ];
+		return [
+			'zag-filter-select'     => 'filter-select',
+			'zag-filter-datepicker' => 'filter-datepicker',
+		];
 	}
 }
 
@@ -416,6 +419,88 @@ namespace {
 	$customEmpty = $customField;
 	unset( $customEmpty['settings']['customFieldKey'] );
 	check( 'customField with no key is a no-op', $bridge->build_query_vars( [], $customEmpty, 'q1', 0 ), [] );
+
+	// --- 8. Date picker ----------------------------------------------------
+	$makeDate = function ( $settings, $value ) {
+		return [
+			'filter_id'     => 'zagD',
+			'instance_name' => 'zag-filter-datepicker',
+			'value'         => $value,
+			'settings'      => array_merge( [ 'filterSource' => 'wpField' ], $settings ),
+		];
+	};
+
+	check(
+		'single date builds a date_query from components',
+		$bridge->build_query_vars( [], $makeDate( [ 'wpPostField' => 'post_date' ], '2026-05-01' ), 'q1', 0 ),
+		[ 'date_query' => [ [ 'year' => '2026', 'month' => '5', 'day' => '1' ] ] ]
+	);
+
+	check(
+		'a date range builds an inclusive after/before clause',
+		$bridge->build_query_vars( [], $makeDate( [ 'isDateRange' => true ], '2026-05-01,2026-05-15' ), 'q1', 0 )['date_query'][0],
+		[
+			'after'     => [ 'year' => '2026', 'month' => '5', 'day' => '1' ],
+			'before'    => [ 'year' => '2026', 'month' => '5', 'day' => '15' ],
+			'inclusive' => true,
+		]
+	);
+
+	check(
+		'a non-default field sets the date_query column',
+		$bridge->build_query_vars( [], $makeDate( [ 'wpPostField' => 'post_modified' ], '2026-05-01' ), 'q1', 0 )['date_query'][0]['column'],
+		'post_modified'
+	);
+
+	check(
+		'enableTime carries hour and minute through',
+		$bridge->build_query_vars( [], $makeDate( [ 'enableTime' => true ], '2026-05-01 09:30' ), 'q1', 0 )['date_query'][0],
+		[ 'year' => '2026', 'month' => '5', 'day' => '1', 'hour' => '09', 'minute' => '30' ]
+	);
+
+	check(
+		'a before/after operator wraps the components',
+		$bridge->build_query_vars( [], $makeDate( [ 'fieldCompareOperator' => 'before' ], '2026-05-01' ), 'q1', 0 )['date_query'][0],
+		[ 'before' => [ 'year' => '2026', 'month' => '5', 'day' => '1' ] ]
+	);
+
+	// Custom field dates compare as strings, not components.
+	check(
+		'a custom field date builds a DATE meta clause',
+		$bridge->build_query_vars( [], $makeDate( [ 'filterSource' => 'customField', 'customFieldKey' => 'event_date' ], '2026-05-01' ), 'q1', 0 )['meta_query'][0],
+		[ 'key' => 'event_date', 'value' => '2026-05-01', 'compare' => '=', 'type' => 'DATE' ]
+	);
+
+	check(
+		'a custom field range builds paired >= and <= clauses',
+		$bridge->build_query_vars( [], $makeDate( [ 'filterSource' => 'customField', 'customFieldKey' => 'event_date', 'isDateRange' => true ], '2026-05-01,2026-05-15' ), 'q1', 0 )['meta_query'][0],
+		[
+			[ 'key' => 'event_date', 'value' => '2026-05-01', 'compare' => '>=', 'type' => 'DATE' ],
+			[ 'key' => 'event_date', 'value' => '2026-05-15', 'compare' => '<=', 'type' => 'DATE' ],
+		]
+	);
+
+	check(
+		'enableTime switches the meta type to DATETIME',
+		$bridge->build_query_vars( [], $makeDate( [ 'filterSource' => 'customField', 'customFieldKey' => 'event_date', 'enableTime' => true ], '2026-05-01 09:30' ), 'q1', 0 )['meta_query'][0]['type'],
+		'DATETIME'
+	);
+
+	// A half-entered range must not build a lopsided query.
+	check(
+		'range mode with only one date is a no-op',
+		$bridge->build_query_vars( [], $makeDate( [ 'isDateRange' => true ], '2026-05-01' ), 'q1', 0 ),
+		[]
+	);
+
+	check(
+		'single mode with a range value is a no-op',
+		$bridge->build_query_vars( [], $makeDate( [], '2026-05-01,2026-05-15' ), 'q1', 0 ),
+		[]
+	);
+
+	check( 'an unparseable date is a no-op', $bridge->build_query_vars( [], $makeDate( [], 'not-a-date' ), 'q1', 0 ), [] );
+	check( 'an empty date is a no-op', $bridge->build_query_vars( [], $makeDate( [], '' ), 'q1', 0 ), [] );
 
 	// A native filter must pass through our hook untouched.
 	$nativeFilter = [

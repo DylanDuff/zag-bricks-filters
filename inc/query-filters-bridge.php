@@ -315,6 +315,17 @@ class Query_Filters_Bridge {
 			}
 		}
 
+		/**
+		 * Date filters route by element, not by source.
+		 *
+		 * They share wpField/customField as sources but need date_query and
+		 * DATE/DATETIME meta comparisons rather than the generic equality
+		 * handling those sources otherwise get.
+		 */
+		if ( element_map()[ $instance_name ] === 'filter-datepicker' ) {
+			return $this->build_datepicker_query_vars( $query_vars, $filter, $query_id, $filter_index );
+		}
+
 		switch ( $settings['filterSource'] ?? false ) {
 			case 'taxonomy':
 				return $this->build_taxonomy_query_vars( $query_vars, $filter, $query_id, $filter_index );
@@ -347,11 +358,184 @@ class Query_Filters_Bridge {
 	 * compute counts that account for what else is active. Skipping this gives
 	 * every other filter on the query wrong counts.
 	 */
-	private function record_clause( $query_id, $filter_index, $clause, $type ) {
-		if ( isset( \Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ] ) ) {
-			\Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ]['query_vars'] = $clause;
-			\Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ]['query_type'] = $type;
+	private function record_clause( $query_id, $filter_index, $clause, $type, $extra = [] ) {
+		if ( ! isset( \Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ] ) ) {
+			return;
 		}
+
+		\Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ]['query_vars'] = $clause;
+		\Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ]['query_type'] = $type;
+
+		foreach ( $extra as $key => $value ) {
+			\Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ][ $key ] = $value;
+		}
+	}
+
+	/**
+	 * Mirror of \Bricks\Query_Filters::build_datepicker_query_vars() (:2799).
+	 */
+	private function build_datepicker_query_vars( $query_vars, $filter, $query_id, $filter_index ) {
+		$settings     = $filter['settings'];
+		$filter_value = $filter['value'];
+		$field_source = $settings['filterSource'] ?? 'wpField';
+		$custom_key   = $settings['customFieldKey'] ?? false;
+		$mode         = isset( $settings['isDateRange'] ) ? 'range' : 'single';
+		$operator     = $settings['fieldCompareOperator'] ?? 'is';
+		$enable_time  = isset( $settings['enableTime'] );
+		$provider     = $settings['fieldProvider'] ?? 'none';
+		$query        = [];
+
+		/**
+		 * range: 2024-05-01,2024-05-15
+		 * single: 2024-05-01
+		 * with time: 2024-05-01 09:00,2024-05-15 13:30
+		 */
+		$parsed_dates = $this->parse_datepicker_date( $filter_value );
+
+		// A half-entered range would otherwise build a nonsense query.
+		if ( $mode === 'range' && count( $parsed_dates ) !== 2 ) {
+			return $query_vars;
+		}
+
+		if ( $mode === 'single' && count( $parsed_dates ) !== 1 ) {
+			return $query_vars;
+		}
+
+		if ( $field_source === 'wpField' ) {
+			$field_key   = $settings['wpPostField'] ?? 'post_date';
+			$date_values = [];
+
+			// WP_Date_Query wants discrete components, not a string.
+			$needed_keys = $enable_time
+				? [ 'year', 'month', 'day', 'hour', 'minute' ]
+				: [ 'year', 'month', 'day' ];
+
+			foreach ( $parsed_dates as $key => $date ) {
+				$date_values[ $key ] = array_intersect_key( $date, array_flip( $needed_keys ) );
+			}
+
+			if ( $mode === 'single' && isset( $date_values['start'] ) ) {
+				$query = $operator === 'is'
+					? $date_values['start']
+					: [ $operator => $date_values['start'] ];
+			} elseif ( $mode === 'range' && isset( $date_values['start'], $date_values['end'] ) ) {
+				$query = [
+					'after'     => $date_values['start'],
+					'before'    => $date_values['end'],
+					'inclusive' => true, // Include the selected dates, not just between them.
+				];
+			}
+
+			// post_date is WP_Date_Query's default column.
+			if ( $field_key !== 'post_date' ) {
+				$query['column'] = $field_key;
+			}
+
+			if ( isset( $query_vars['date_query'] ) ) {
+				$query_vars['date_query'][] = $query;
+			} else {
+				$query_vars['date_query'] = [ $query ];
+			}
+
+			$this->record_clause( $query_id, $filter_index, $query, 'date_query', [ 'parsed_dates' => $parsed_dates ] );
+
+			return $query_vars;
+		}
+
+		if ( $field_source === 'customField' ) {
+			$date_values = [];
+
+			// Meta comparisons want a string, date-only unless time is enabled.
+			foreach ( $parsed_dates as $key => $date ) {
+				if ( ! isset( $date['string'] ) ) {
+					continue;
+				}
+
+				$date_values[ $key ] = $enable_time
+					? $date['string']
+					: explode( ' ', $date['string'] )[0];
+			}
+
+			$type = $enable_time ? 'DATETIME' : 'DATE';
+
+			if ( $mode === 'single' && isset( $date_values['start'] ) ) {
+				$query = [
+					'key'     => $custom_key,
+					'value'   => $date_values['start'],
+					'compare' => $operator === 'is' ? '=' : ( $operator === 'before' ? '<=' : '>=' ),
+					'type'    => $type,
+				];
+			} elseif ( $mode === 'range' && isset( $date_values['start'], $date_values['end'] ) ) {
+				foreach ( $date_values as $key => $value ) {
+					$query[] = [
+						'key'     => $custom_key,
+						'value'   => $value,
+						'compare' => $key === 'start' ? '>=' : '<=',
+						'type'    => $type,
+					];
+				}
+			}
+
+			// Undocumented in Bricks, but third-party integrations rely on it.
+			$query = apply_filters( 'bricks/query_filters/datepicker_custom_field_meta_query', $query, $filter, $provider, $query_id );
+
+			if ( empty( $query ) ) {
+				return $query_vars;
+			}
+
+			if ( isset( $query_vars['meta_query'] ) ) {
+				$query_vars['meta_query'][] = $query;
+			} else {
+				$query_vars['meta_query'] = [ $query ];
+			}
+
+			$this->record_clause( $query_id, $filter_index, $query, 'meta_query', [ 'parsed_dates' => $parsed_dates ] );
+		}
+
+		return $query_vars;
+	}
+
+	/**
+	 * Parse a datepicker value into date components.
+	 *
+	 * Mirror of \Bricks\Query_Filters::parse_datepicker_date() (:2949), factored:
+	 * the original repeats the same component array three times, and its second
+	 * regex branch is unreachable because the first pattern's trailing group is
+	 * already optional.
+	 *
+	 * @return array Keyed 'start' and, for a range, 'end'. Empty if unparseable.
+	 */
+	private function parse_datepicker_date( $date_string ) {
+		$pattern = '/^(\d{4}-\d{2}-\d{2})(?: (\d{2}:\d{2}))?(?:,(\d{4}-\d{2}-\d{2})(?: (\d{2}:\d{2}))?)?$/';
+
+		if ( ! preg_match( $pattern, (string) $date_string, $matches ) ) {
+			return [];
+		}
+
+		$result = [
+			'start' => $this->parse_date_part( $matches[1], $matches[2] ?? null ),
+		];
+
+		if ( ! empty( $matches[3] ) ) {
+			$result['end'] = $this->parse_date_part( $matches[3], $matches[4] ?? null );
+		}
+
+		return $result;
+	}
+
+	private function parse_date_part( $date, $time ) {
+		$date_time = new \DateTime( $date . ( $time ? " $time" : '' ) );
+
+		return [
+			'year' => $date_time->format( 'Y' ),
+			// Leading zeros stripped: WP_Date_Query wants integers.
+			'month'  => ltrim( $date_time->format( 'm' ), '0' ),
+			'day'    => ltrim( $date_time->format( 'd' ), '0' ),
+			'hour'   => $time ? $date_time->format( 'H' ) : null,
+			'minute' => $time ? $date_time->format( 'i' ) : null,
+			'string' => $date_time->format( 'Y-m-d H:i' ),
+			'object' => $date_time,
+		];
 	}
 
 	/**

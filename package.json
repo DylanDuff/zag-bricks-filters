@@ -9,6 +9,8 @@
     "test": "php tests/impersonation-test.php"
   },
   "dependencies": {
+    "@internationalized/date": "^3.12.2",
+    "@zag-js/date-picker": "^1.42.0",
     "@zag-js/select": "^1.42.0",
     "@zag-js/vanilla": "^1.42.0"
   },
