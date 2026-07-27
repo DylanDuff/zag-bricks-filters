@@ -23,7 +23,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Query_Filters_Bridge {
 
+	/**
+	 * selectedFilters from the current filter AJAX request, if any.
+	 *
+	 * @see capture_rest_filters()
+	 */
+	private static $rest_selected_filters = null;
+
 	public function __construct() {
+		// Stash the raw multi-select values before Bricks flattens them.
+		add_filter( 'rest_request_before_callbacks', [ $this, 'capture_rest_filters' ], 10, 3 );
+
 		/**
 		 * Index injection.
 		 *
@@ -118,6 +128,77 @@ class Query_Filters_Bridge {
 		return $found ? $elements : null;
 	}
 
+	/**
+	 * Keep a copy of the request's selectedFilters payload.
+	 *
+	 * Query_Filters::sanitize_filter_value() (:1979) coerces a filter's value by
+	 * switching on the element name. Our name matches no case, so multi-select
+	 * arrays hit the `default` branch and get collapsed with reset() — first
+	 * value kept, the rest silently dropped. The collapse happens inside
+	 * set_active_filters(), which offers no hook, so the only way back to the
+	 * full value is the untouched request.
+	 */
+	public function capture_rest_filters( $response, $handler, $request ) {
+		$params = is_object( $request ) ? $request->get_json_params() : null;
+
+		if ( is_array( $params ) && isset( $params['selectedFilters'] ) && is_array( $params['selectedFilters'] ) ) {
+			self::$rest_selected_filters = $params['selectedFilters'];
+		}
+
+		return $response;
+	}
+
+	/**
+	 * Recover a multi-select filter's full value.
+	 *
+	 * Checks the filter AJAX payload first, then the URL — the two ways a value
+	 * reaches us. Returns null when the filter isn't present in either, which is
+	 * the normal "nothing selected" case.
+	 *
+	 * @return array|null Sanitised values, or null if absent.
+	 */
+	public static function recover_multi_value( $filter_id, $settings = [] ) {
+		$raw = null;
+
+		if ( is_array( self::$rest_selected_filters ) && isset( self::$rest_selected_filters[ $filter_id ] ) ) {
+			$raw = self::$rest_selected_filters[ $filter_id ];
+		} else {
+			$nice_name = $settings['filterNiceName'] ?? '';
+			$key       = $nice_name !== '' ? $nice_name : 'brx_' . $filter_id;
+
+			if ( isset( $_GET[ $key ] ) ) {
+				$raw = wp_unslash( $_GET[ $key ] ); // phpcs:ignore WordPress.Security.NonceVerification
+			}
+		}
+
+		if ( $raw === null ) {
+			return null;
+		}
+
+		if ( ! is_array( $raw ) ) {
+			$raw = [ $raw ];
+		}
+
+		// Mirrors the tail of sanitize_filter_value(), which we've bypassed.
+		$values = array_map(
+			function ( $value ) {
+				return sanitize_text_field( rawurldecode( (string) $value ) );
+			},
+			$raw
+		);
+
+		$values = array_values(
+			array_filter(
+				$values,
+				function ( $value ) {
+					return $value !== '';
+				}
+			)
+		);
+
+		return $values ?: null;
+	}
+
 	private function is_bricks_data_key( $meta_key ) {
 		return in_array(
 			$meta_key,
@@ -149,6 +230,15 @@ class Query_Filters_Bridge {
 
 		if ( $filter_action !== 'filter' ) {
 			return $query_vars;
+		}
+
+		// Undo sanitize_filter_value()'s collapse of multi-select arrays.
+		if ( ! empty( $settings['zagMultiple'] ) && ! empty( $filter['filter_id'] ) ) {
+			$recovered = self::recover_multi_value( $filter['filter_id'], $settings );
+
+			if ( $recovered !== null ) {
+				$filter['value'] = $recovered;
+			}
 		}
 
 		switch ( $settings['filterSource'] ?? false ) {

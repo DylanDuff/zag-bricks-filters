@@ -217,6 +217,22 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			$value = $settings['filterValue'];
 		}
 
+		/**
+		 * filterValue arrives already collapsed for multi-select.
+		 *
+		 * set_active_filters() runs the value through sanitize_filter_value(),
+		 * whose `default` branch reduces an array to its first element, and only
+		 * then injects it as filterValue. So a page loaded with two terms in the
+		 * URL would restore showing just one as selected. Go back to the request.
+		 */
+		if ( $this->is_multiple() ) {
+			$recovered = Query_Filters_Bridge::recover_multi_value( $this->id, $settings );
+
+			if ( $recovered !== null ) {
+				$value = $recovered;
+			}
+		}
+
 		if ( ! is_array( $value ) ) {
 			$value = ( $value === '' || $value === null ) ? [] : [ $value ];
 		}

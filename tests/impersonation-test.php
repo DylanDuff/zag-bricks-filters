@@ -27,6 +27,8 @@ namespace {
 	function wp_json_encode( $v ) { return json_encode( $v ); }
 	function selected( $a, $b, $echo = true ) { return $a == $b ? 'selected' : ''; }
 	function wp_strip_all_tags( $s ) { return strip_tags( $s ); }
+	function wp_unslash( $v ) { return $v; }
+	function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
 }
 
 // --- Bricks stubs ----------------------------------------------------------
@@ -234,6 +236,65 @@ namespace {
 			'relation' => 'AND',
 		]
 	);
+
+	// --- 5. Multi-select value recovery ------------------------------------
+	// Bricks' sanitize_filter_value() collapses arrays for unrecognised element
+	// names, so $filter['value'] arrives holding only the first term.
+	$_GET = [ 'brx_zagA' => [ 'penrith', 'ryde', 'blaxland' ] ];
+
+	$collapsed = [
+		'filter_id'     => 'zagA',
+		'instance_name' => 'zag-filter-select',
+		'value'         => 'penrith',
+		'settings'      => [
+			'filterSource'   => 'taxonomy',
+			'filterTaxonomy' => 'clinic_location',
+			'zagMultiple'    => true,
+		],
+	];
+
+	$recovered = $bridge->build_query_vars( [], $collapsed, 'q1', 0 );
+	check(
+		'multi-select recovers all terms from the URL after Bricks collapses them',
+		$recovered['tax_query'][0]['terms'],
+		[ 'penrith', 'ryde', 'blaxland' ]
+	);
+
+	// Nice name takes precedence over the brx_ fallback.
+	$_GET = [ '_location' => [ 'katoomba', 'ryde' ], 'brx_zagA' => [ 'penrith' ] ];
+
+	$niceNamed = $collapsed;
+	$niceNamed['settings']['filterNiceName'] = '_location';
+
+	$viaNiceName = $bridge->build_query_vars( [], $niceNamed, 'q1', 0 );
+	check(
+		'recovery prefers the configured URL parameter name',
+		$viaNiceName['tax_query'][0]['terms'],
+		[ 'katoomba', 'ryde' ]
+	);
+
+	// Absent from the request: leave Bricks' value alone rather than blanking it.
+	$_GET = [];
+	$absent = $bridge->build_query_vars( [], $collapsed, 'q1', 0 );
+	check(
+		'falls back to the collapsed value when the request has nothing',
+		$absent['tax_query'][0]['terms'],
+		'penrith'
+	);
+
+	// Single select must not go through recovery at all.
+	$_GET = [ 'brx_zagA' => [ 'penrith', 'ryde' ] ];
+	$singleFilter = $collapsed;
+	unset( $singleFilter['settings']['zagMultiple'] );
+
+	$singleVars = $bridge->build_query_vars( [], $singleFilter, 'q1', 0 );
+	check(
+		'single select ignores recovery and keeps its scalar value',
+		$singleVars['tax_query'][0]['terms'],
+		'penrith'
+	);
+
+	$_GET = [];
 
 	// A native filter must pass through our hook untouched.
 	$nativeFilter = [
