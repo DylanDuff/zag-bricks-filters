@@ -87,8 +87,25 @@ gives every other filter on the query wrong counts.
 
 ## Frontend
 
-`src/zag-filters.js` → `assets/js/zag-filters.js` via esbuild (`pnpm build`). The
-bundle **is committed** so the plugin works from a plain checkout.
+`src/` → `assets/js/zag-filters.js` via esbuild (`pnpm build`). The bundle **is
+committed** so the plugin works from a plain checkout.
+
+| Module | Role |
+|---|---|
+| `zag-filters.js` | Entry: one `BricksFunction` per element type |
+| `bricks.js` | Everything touching Bricks' filter runtime — registry, lifecycle, value plumbing |
+| `select.js` | Select machine, trigger and listbox |
+| `datepicker.js` | Date picker machine, calendar views, flatpickr shim |
+
+Both elements share one lifecycle and differ only in how a value is read from
+and written to their machine, which each supplies as an **adapter**
+(`getValue` / `setValue` / `captureState` / `restoreState`). Add a third element
+by writing a mount function and an adapter; don't duplicate the lifecycle.
+
+The date picker exposes a flatpickr-shaped object on
+`filterInstance.datepicker`, because `resetFilterValue` (`filters.js:256`) calls
+`.clear()` and `.setDate()` on it — and **bails early if it's missing**, so
+without the shim reset would silently not clear the date rather than error.
 
 Key facts about Bricks' filter JS (`assets/js/filters.js`):
 
@@ -165,12 +182,14 @@ If anything below a Zag element ever stops responding to clicks, check
 
 ## Known limitations
 
-Ordered roughly by how likely they are to bite.
-
-- **No date picker yet.** `build_datepicker_query_vars` (`:2799`, ~120 lines) is
-  the heaviest port, and Bricks stores the flatpickr instance on the filter
-  instance and calls `.clear()` / `.setDate()` on reset — so a Zag date picker
-  needs to expose a shim with that shape.
+- **The date picker UI is date-only.** `enableTime` is a real control and the
+  query layer fully supports it (hour/minute components for `wpField`,
+  `DATETIME` for `customField`), but the Zag UI produces no time component — Zag
+  has no time widget, so this needs a separate input. Ticking Enable time
+  currently changes the query type without changing what can be picked.
+- **The bundle is one file, ~171kb minified.** Pages using only a select still
+  download the date picker. Splitting per element is straightforward if that
+  matters.
 
 ## Testing
 
