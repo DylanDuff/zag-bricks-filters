@@ -109,6 +109,44 @@ The server-rendered `<select>` inside each element is the progressive-enhancemen
 baseline. JS hides it on mount and mirrors selections into it, so the filter
 still works without the bundle.
 
+### 4. Multi-select values — recovery from the request
+
+`sanitize_filter_value()` (`:1979`) also switches on the element name. Ours
+matches no case, so a multi-select array hits the `default` branch and is
+collapsed with `reset()` — first value kept, the rest dropped. This happens
+inside `set_active_filters()`, which offers no hook.
+
+`Query_Filters_Bridge::recover_multi_value()` goes back to the untouched
+request: the filter AJAX payload (captured via `rest_request_before_callbacks`)
+first, then the URL parameter.
+
+It has to be applied in **two** places, because the collapse breaks two paths:
+query building in the bridge, and the selected state on page load in the element
+(`filterValue` is injected downstream of the same call, already collapsed).
+
+## Known limitations
+
+Ordered roughly by how likely they are to bite.
+
+- **`filterSource` = `wpField` / `customField` don't filter.** Only `taxonomy`
+  is ported. Such a filter renders and looks normal but silently does nothing.
+  See section 3.
+- **AND-mode counts are wrong for multi-select.** `set_options_with_count()`
+  gates its AND-combine branch on `$this->name === 'filter-checkbox'`
+  (`filter-base.php:580`). Filtering is correct — the bridge builds AND clauses
+  itself — but counts are computed as though the logic were OR. Filtering and
+  counting are separate code paths here. *Not yet verified in practice.*
+- **Counts freeze after a filter action.** We're not in
+  `dynamic_update_elements()`, so Bricks never returns fresh HTML for our
+  element. Page-load counts are right; they don't update as the query narrows.
+  Fixable: `Query_Filters::get_updated_filters()` is public static and
+  `rest_post_dispatch` is a core hook, so our re-rendered HTML can be injected
+  into the response.
+- **No date picker yet.** `build_datepicker_query_vars` (`:2799`, ~120 lines) is
+  the heaviest port, and Bricks stores the flatpickr instance on the filter
+  instance and calls `.clear()` / `.setDate()` on reset — so a Zag date picker
+  needs to expose a shim with that shape.
+
 ## Testing
 
 `php tests/impersonation-test.php` — stubs the Bricks surface, no WP or DB.
