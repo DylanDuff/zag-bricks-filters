@@ -141,6 +141,24 @@ The consequence is that our elements now go through Bricks' DOM replacement
 and highlighted state across via `pendingRestore` — without that, a multi-select
 menu (which stays open across a selection) slams shut mid-interaction.
 
+### Gotcha: the positioner must never take pointer events
+
+`render()` keeps the positioner mounted while closed (`removeAttribute('hidden')`)
+so the menu's close transition can play, and the menu hides with `visibility`
+rather than `display` so it keeps its layout box. The result is a full-size,
+absolutely positioned, invisible box sitting over whatever follows the select.
+
+Without `pointer-events: none` on `.zag-select__positioner`, that box silently
+swallows clicks on anything beneath it — a reset button placed under a filter
+simply stops working. It only manifests **after the dropdown has been opened
+once**, because Zag applies the positioner's inline absolute positioning on
+first open, so a freshly loaded page behaves fine. That asymmetry makes it look
+like a filter-state bug rather than a stacking one; it cost a long debugging
+session.
+
+If anything below a Zag element ever stops responding to clicks, check
+`document.elementFromPoint()` over it before suspecting filter state.
+
 ## Known limitations
 
 Ordered roughly by how likely they are to bite.
