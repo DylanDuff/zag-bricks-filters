@@ -18,6 +18,16 @@ import * as select from '@zag-js/select'
 
 const mounted = new Map()
 
+/**
+ * Interaction state carried across a server re-render, keyed by filter id.
+ *
+ * Bricks replaces the entire filter element node when the response carries
+ * updated_filters (frontend.js:11961), which is how our option counts refresh.
+ * That destroys the Zag instance — and for multi-select, where the menu stays
+ * open across a selection, it would otherwise slam the dropdown shut mid-use.
+ */
+const pendingRestore = new Map()
+
 function getFilterInstance(root) {
 	const instances = window.bricksData?.filterInstances
 
@@ -113,6 +123,69 @@ function mount(root) {
 	instance.render()
 
 	mounted.set(root, instance)
+
+	restoreInteraction(instance)
+}
+
+/**
+ * Put back the open menu and highlighted option after a server re-render.
+ *
+ * Deliberately after mounted.set(), so the setOpen below goes through the
+ * normal render path.
+ */
+function restoreInteraction(instance) {
+	const filterId = instance.filterInstance?.filterId
+
+	if (!filterId || !pendingRestore.has(filterId)) {
+		return
+	}
+
+	const previous = pendingRestore.get(filterId)
+	pendingRestore.delete(filterId)
+
+	if (!previous.open) {
+		return
+	}
+
+	const api = select.connect(instance.machine.service, normalizeProps)
+	api.setOpen(true)
+
+	if (previous.highlightedValue) {
+		api.setHighlightValue(previous.highlightedValue)
+	}
+}
+
+/**
+ * Tear down instances whose element Bricks has swapped out.
+ *
+ * Runs before BricksFunction re-runs and mounts the replacement, because our
+ * listener is registered at module evaluation and theirs on DOMContentLoaded.
+ */
+function reap() {
+	mounted.forEach((instance, root) => {
+		if (root.isConnected) {
+			return
+		}
+
+		const filterId = instance.filterInstance?.filterId
+
+		if (filterId) {
+			const api = select.connect(instance.machine.service, normalizeProps)
+
+			pendingRestore.set(filterId, {
+				open: api.open,
+				highlightedValue: api.highlightedValue
+			})
+		}
+
+		try {
+			instance.machine.stop()
+		} catch (e) {
+			// A machine that failed to start has nothing to stop.
+		}
+
+		mounted.delete(root)
+	})
 }
 
 /**
@@ -345,4 +418,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	zagFiltersFn.run()
 })
 
-document.addEventListener('bricks/ajax/query_result/displayed', resync)
+document.addEventListener('bricks/ajax/query_result/displayed', () => {
+	// Reap first so resync only ever sees live instances, then mount whatever
+	// replaced them. BricksFunction subscribes to this event itself and will
+	// call run() again after us; the mounted guard in eachElement makes that a
+	// no-op. Calling it here keeps the ordering ours rather than dependent on
+	// listener registration order.
+	reap()
+	resync()
+	zagFiltersFn.run()
+})

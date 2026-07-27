@@ -45,6 +45,80 @@ class Query_Filters_Bridge {
 
 		// Build query vars Bricks' name-keyed switch statement skips for us.
 		add_filter( 'bricks/query_filters/filter_query_vars', [ $this, 'build_query_vars' ], 10, 4 );
+
+		// Refresh our option counts in the filter AJAX response.
+		add_filter( 'rest_post_dispatch', [ $this, 'inject_updated_filters' ], 10, 3 );
+	}
+
+	/**
+	 * Add our elements' re-rendered HTML to the filter AJAX response.
+	 *
+	 * Query_Filters::get_updated_filters() (:3013) skips us: it checks
+	 * `dynamic_update_elements()` against the element name from page data. Without
+	 * this, option counts are correct on page load and then frozen — which reads
+	 * as authoritative while being wrong.
+	 *
+	 * We re-render after dispatch rather than replacing Bricks' own work, so
+	 * native filters on the same query are untouched. Counts come out right
+	 * because Query_Filters::$active_filters is still populated at this point,
+	 * which is what set_options_with_count() reads.
+	 */
+	public function inject_updated_filters( $response, $server, $request ) {
+		if ( ! is_object( $request ) || $request->get_route() !== '/bricks/v1/query_result' ) {
+			return $response;
+		}
+
+		if ( ! is_object( $response ) || ! method_exists( $response, 'get_data' ) ) {
+			return $response;
+		}
+
+		$data = $response->get_data();
+
+		if ( ! is_array( $data ) ) {
+			return $response;
+		}
+
+		$params     = $request->get_json_params();
+		$post_id    = $params['postId'] ?? 0;
+		$filter_ids = $params['filters'] ?? [];
+
+		if ( ! $post_id || ! is_array( $filter_ids ) || empty( $filter_ids ) ) {
+			return $response;
+		}
+
+		$map     = element_map();
+		$updated = $data['updated_filters'] ?? [];
+		$added   = false;
+
+		foreach ( $filter_ids as $filter_id ) {
+			// Bricks already rendered it: a native filter, leave it alone.
+			if ( isset( $updated[ $filter_id ] ) ) {
+				continue;
+			}
+
+			$element_data = \Bricks\Helpers::get_element_data( $post_id, $filter_id );
+			$element      = $element_data['element'] ?? false;
+
+			if ( ! $element || ! array_key_exists( $element['name'] ?? '', $map ) ) {
+				continue;
+			}
+
+			$html = \Bricks\Frontend::render_element( $element );
+
+			if ( ! $html ) {
+				continue;
+			}
+
+			$updated[ $filter_id ] = $html;
+			$added                 = true;
+		}
+
+		if ( $added ) {
+			$data['updated_filters'] = $updated;
+			$response->set_data( $data );
+		}
+
+		return $response;
 	}
 
 	/**
