@@ -6,3 +6,6 @@
 node_modules/
 .env
 *.zip
+
+# Built bundle is committed so the plugin works from a plain checkout.
+# assets/js/zag-filters.js is intentionally NOT ignored.

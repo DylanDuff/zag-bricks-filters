@@ -1,0 +1,23 @@
+{
+  "name": "zag-filters-for-bricks",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Bricks query filter elements built on Zag.js state machines",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "test": "php tests/impersonation-test.php"
+  },
+  "dependencies": {
+    "@zag-js/select": "^1.42.0",
+    "@zag-js/vanilla": "^1.42.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
