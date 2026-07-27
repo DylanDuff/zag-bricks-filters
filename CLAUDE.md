@@ -124,6 +124,23 @@ It has to be applied in **two** places, because the collapse breaks two paths:
 query building in the bridge, and the selected state on page load in the element
 (`filterValue` is injected downstream of the same call, already collapsed).
 
+### 5. Refreshing counts — re-rendering after dispatch
+
+`get_updated_filters()` (`:3013`) checks `dynamic_update_elements()` against the
+page-data element name, so it skips us and our counts would freeze after the
+first filter action. `Query_Filters_Bridge::inject_updated_filters()` re-renders
+our elements on `rest_post_dispatch` and adds them to the response's
+`updated_filters`, leaving native filters to Bricks.
+
+Counts are correct at that point because `Query_Filters::$active_filters` is
+still populated, which is what `set_options_with_count()` reads.
+
+The consequence is that our elements now go through Bricks' DOM replacement
+(`frontend.js:11961`), which destroys the Zag instance. `reap()` in
+`zag-filters.js` tears down orphaned instances on each response and carries open
+and highlighted state across via `pendingRestore` — without that, a multi-select
+menu (which stays open across a selection) slams shut mid-interaction.
+
 ## Known limitations
 
 Ordered roughly by how likely they are to bite.
@@ -136,12 +153,6 @@ Ordered roughly by how likely they are to bite.
   (`filter-base.php:580`). Filtering is correct — the bridge builds AND clauses
   itself — but counts are computed as though the logic were OR. Filtering and
   counting are separate code paths here. *Not yet verified in practice.*
-- **Counts freeze after a filter action.** We're not in
-  `dynamic_update_elements()`, so Bricks never returns fresh HTML for our
-  element. Page-load counts are right; they don't update as the query narrows.
-  Fixable: `Query_Filters::get_updated_filters()` is public static and
-  `rest_post_dispatch` is a core hook, so our re-rendered HTML can be injected
-  into the response.
 - **No date picker yet.** `build_datepicker_query_vars` (`:2799`, ~120 lines) is
   the heaviest port, and Bricks stores the flatpickr instance on the filter
   instance and calls `.clear()` / `.setDate()` on reset — so a Zag date picker
