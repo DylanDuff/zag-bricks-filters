@@ -81,6 +81,20 @@ add_action(
 	20
 );
 
+/**
+ * Cache-busting version for an asset.
+ *
+ * File mtime rather than plugin version: the bundle is rebuilt far more often
+ * than the version is bumped, and a stale cached bundle during development looks
+ * exactly like a bug that hasn't been fixed. Falls back to the plugin version if
+ * the file is missing.
+ */
+function asset_version( $relative_path ) {
+	$mtime = @filemtime( ZAG_PATH . $relative_path );
+
+	return $mtime ? (string) $mtime : version();
+}
+
 add_action(
 	'wp_enqueue_scripts',
 	function () {
@@ -88,7 +102,7 @@ add_action(
 			'zag-filters',
 			ZAG_URL . 'assets/js/zag-filters.js',
 			[ 'bricks-filters' ],
-			version(),
+			asset_version( 'assets/js/zag-filters.js' ),
 			true
 		);
 
@@ -96,7 +110,7 @@ add_action(
 			'zag-filters',
 			ZAG_URL . 'assets/css/zag-filters.css',
 			[],
-			version()
+			asset_version( 'assets/css/zag-filters.css' )
 		);
 	}
 );
