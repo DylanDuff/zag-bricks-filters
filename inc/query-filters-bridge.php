@@ -318,7 +318,177 @@ class Query_Filters_Bridge {
 		switch ( $settings['filterSource'] ?? false ) {
 			case 'taxonomy':
 				return $this->build_taxonomy_query_vars( $query_vars, $filter, $query_id, $filter_index );
+
+			case 'wpField':
+				return $this->build_wp_field_query_vars( $query_vars, $filter, $query_id, $filter_index );
+
+			case 'customField':
+				return $this->build_custom_field_query_vars( $query_vars, $filter, $query_id, $filter_index );
 		}
+
+		return $query_vars;
+	}
+
+	/**
+	 * Whether a filter behaves as a multi-value input.
+	 *
+	 * The native builders branch on `instance_name === 'filter-checkbox'` to
+	 * decide array-vs-scalar semantics. Our name never matches, so every such
+	 * branch keys off this instead.
+	 */
+	private function is_multi( $settings ) {
+		return ! empty( $settings['zagMultiple'] );
+	}
+
+	/**
+	 * Record the resolved clause on the active filter.
+	 *
+	 * set_options_with_count() reads query_vars/query_type off sibling filters to
+	 * compute counts that account for what else is active. Skipping this gives
+	 * every other filter on the query wrong counts.
+	 */
+	private function record_clause( $query_id, $filter_index, $clause, $type ) {
+		if ( isset( \Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ] ) ) {
+			\Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ]['query_vars'] = $clause;
+			\Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ]['query_type'] = $type;
+		}
+	}
+
+	/**
+	 * Mirror of \Bricks\Query_Filters::build_wp_field_query_vars() (:2497).
+	 */
+	private function build_wp_field_query_vars( $query_vars, $filter, $query_id, $filter_index ) {
+		$settings     = $filter['settings'];
+		$filter_value = $filter['value'];
+		$field_type   = $settings['sourceFieldType'] ?? 'post';
+
+		$source_field_keys = [
+			'post' => 'wpPostField',
+			'user' => 'wpUserField',
+			'term' => 'wpTermField',
+		];
+
+		$setting_key  = $source_field_keys[ $field_type ] ?? false;
+		$source_field = $setting_key ? ( $settings[ $setting_key ] ?? false ) : false;
+
+		if ( ! $source_field ) {
+			return $query_vars;
+		}
+
+		switch ( $source_field ) {
+			// POST
+			case 'post_date':
+				$key = 'date';
+				break;
+
+			case 'post_modified':
+				$key = 'modified';
+				break;
+
+			case 'post_author':
+				// Multi-value needs author__in; a single author is a scalar.
+				$key = $this->is_multi( $settings ) ? 'author__in' : 'author';
+				break;
+
+			case 'post_id':
+				$key = 'p';
+				break;
+
+			// USER
+			case 'user_registered':
+				$key = 'registered';
+				break;
+
+			case 'user_role':
+				$key = 'role__in';
+				break;
+
+			case 'user_id':
+				$key = 'include';
+				break;
+
+			// TERM
+			case 'term_id':
+				$key = 'include';
+				break;
+
+			default:
+				$key = $source_field;
+				break;
+		}
+
+		$wp_field_query = [
+			$key => $filter_value,
+		];
+
+		$this->record_clause( $query_id, $filter_index, $wp_field_query, 'wp_query' );
+
+		// These override rather than merge into the existing query vars.
+		foreach ( $wp_field_query as $query_key => $value ) {
+			$query_vars[ $query_key ] = $value;
+		}
+
+		return $query_vars;
+	}
+
+	/**
+	 * Mirror of \Bricks\Query_Filters::build_custom_field_query_vars() (:2603).
+	 */
+	private function build_custom_field_query_vars( $query_vars, $filter, $query_id, $filter_index ) {
+		$settings         = $filter['settings'];
+		$filter_value     = $filter['value'];
+		$field_type       = $settings['sourceFieldType'] ?? 'post';
+		$custom_field_key = $settings['customFieldKey'] ?? false;
+		$provider         = $settings['fieldProvider'] ?? 'none';
+		$combine_logic    = $settings['filterMultiLogic'] ?? 'OR';
+		$multiple         = $this->is_multi( $settings );
+
+		if ( ! $field_type || ! $custom_field_key ) {
+			return $query_vars;
+		}
+
+		if ( isset( $settings['fieldCompareOperator'] ) ) {
+			$compare_operator = $settings['fieldCompareOperator'];
+		} else {
+			// Single select compares one value; multi compares a set.
+			$compare_operator = $multiple ? 'IN' : '=';
+		}
+
+		$meta_query = [];
+
+		if ( $combine_logic === 'AND' && $multiple && is_array( $filter_value ) ) {
+			// One clause per value so all of them must match.
+			foreach ( $filter_value as $value ) {
+				$meta_query[] = [
+					'key'     => $custom_field_key,
+					'value'   => $value,
+					'compare' => $compare_operator,
+				];
+			}
+
+			$meta_query['relation'] = $combine_logic;
+		} else {
+			$meta_query = [
+				'key'     => $custom_field_key,
+				'value'   => $filter_value,
+				'compare' => $compare_operator,
+			];
+		}
+
+		// Undocumented in Bricks, but third-party integrations rely on it.
+		$meta_query = apply_filters( 'bricks/query_filters/custom_field_meta_query', $meta_query, $filter, $provider, $query_id );
+
+		if ( empty( $meta_query ) ) {
+			return $query_vars;
+		}
+
+		if ( isset( $query_vars['meta_query'] ) ) {
+			$query_vars['meta_query'][] = $meta_query;
+		} else {
+			$query_vars['meta_query'] = [ $meta_query ];
+		}
+
+		$this->record_clause( $query_id, $filter_index, $meta_query, 'meta_query' );
 
 		return $query_vars;
 	}
@@ -334,7 +504,7 @@ class Query_Filters_Bridge {
 		$filter_value  = $filter['value'];
 		$taxonomy      = $settings['filterTaxonomy'] ?? false;
 		$combine_logic = $settings['filterMultiLogic'] ?? 'OR';
-		$multiple      = ! empty( $settings['zagMultiple'] );
+		$multiple      = $this->is_multi( $settings );
 
 		if ( ! $taxonomy ) {
 			return $query_vars;
@@ -367,18 +537,7 @@ class Query_Filters_Bridge {
 			$query_vars['tax_query'] = [ $tax_query ];
 		}
 
-		/**
-		 * Write the resolved clause back onto the active filter.
-		 *
-		 * set_options_with_count() reads query_vars/query_type off sibling
-		 * filters to compute counts that account for what else is active. Without
-		 * this, every other filter on the query would count against an
-		 * incomplete picture.
-		 */
-		if ( isset( \Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ] ) ) {
-			\Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ]['query_vars'] = $tax_query;
-			\Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ]['query_type'] = 'tax_query';
-		}
+		$this->record_clause( $query_id, $filter_index, $tax_query, 'tax_query' );
 
 		return $query_vars;
 	}

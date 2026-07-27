@@ -23,6 +23,7 @@ namespace {
 	function esc_attr( $t ) { return $t; }
 	function add_action() {}
 	function add_filter() {}
+	function apply_filters( $hook, $value ) { return $value; }
 	function wp_is_post_revision() { return false; }
 	function wp_json_encode( $v ) { return json_encode( $v ); }
 	function selected( $a, $b, $echo = true ) { return $a == $b ? 'selected' : ''; }
@@ -323,6 +324,98 @@ namespace {
 	);
 
 	$_GET = [];
+
+	// --- 6. wpField source -------------------------------------------------
+	$wpField = [
+		'filter_id'     => 'zagA',
+		'instance_name' => 'zag-filter-select',
+		'value'         => '7',
+		'settings'      => [ 'filterSource' => 'wpField', 'sourceFieldType' => 'post', 'wpPostField' => 'post_author' ],
+	];
+
+	check(
+		'single select on post_author uses the scalar author key',
+		$bridge->build_query_vars( [], $wpField, 'q1', 0 ),
+		[ 'author' => '7' ]
+	);
+
+	$_GET = [ 'brx_zagA' => [ '7', '9' ] ];
+	$wpFieldMulti = $wpField;
+	$wpFieldMulti['settings']['zagMultiple'] = true;
+
+	check(
+		'multi-select on post_author switches to author__in',
+		$bridge->build_query_vars( [], $wpFieldMulti, 'q1', 0 ),
+		[ 'author__in' => [ '7', '9' ] ]
+	);
+	$_GET = [];
+
+	// Unmapped fields pass the field name straight through as the query key.
+	$wpFieldRaw = $wpField;
+	$wpFieldRaw['settings']['wpPostField'] = 'post_type';
+	$wpFieldRaw['value'] = 'page';
+	check(
+		'unmapped wp fields use the field name as the query key',
+		$bridge->build_query_vars( [], $wpFieldRaw, 'q1', 0 ),
+		[ 'post_type' => 'page' ]
+	);
+
+	// No field configured: leave the query untouched.
+	$wpFieldEmpty = $wpField;
+	unset( $wpFieldEmpty['settings']['wpPostField'] );
+	check( 'wpField with no field selected is a no-op', $bridge->build_query_vars( [], $wpFieldEmpty, 'q1', 0 ), [] );
+
+	// --- 7. customField source ---------------------------------------------
+	$customField = [
+		'filter_id'     => 'zagA',
+		'instance_name' => 'zag-filter-select',
+		'value'         => 'blue',
+		'settings'      => [ 'filterSource' => 'customField', 'customFieldKey' => 'colour' ],
+	];
+
+	check(
+		'single select defaults to the = compare operator',
+		$bridge->build_query_vars( [], $customField, 'q1', 0 )['meta_query'][0],
+		[ 'key' => 'colour', 'value' => 'blue', 'compare' => '=' ]
+	);
+
+	$_GET = [ 'brx_zagA' => [ 'blue', 'red' ] ];
+	$customMulti = $customField;
+	$customMulti['settings']['zagMultiple'] = true;
+
+	check(
+		'multi-select defaults to the IN compare operator',
+		$bridge->build_query_vars( [], $customMulti, 'q1', 0 )['meta_query'][0],
+		[ 'key' => 'colour', 'value' => [ 'blue', 'red' ], 'compare' => 'IN' ]
+	);
+
+	$customAnd = $customMulti;
+	$customAnd['settings']['filterMultiLogic'] = 'AND';
+
+	check(
+		'multi-select with AND logic builds one meta clause per value',
+		$bridge->build_query_vars( [], $customAnd, 'q1', 0 )['meta_query'][0],
+		[
+			0          => [ 'key' => 'colour', 'value' => 'blue', 'compare' => 'IN' ],
+			1          => [ 'key' => 'colour', 'value' => 'red', 'compare' => 'IN' ],
+			'relation' => 'AND',
+		]
+	);
+	$_GET = [];
+
+	// An explicit operator wins over the multi/single default.
+	$customExplicit = $customField;
+	$customExplicit['settings']['fieldCompareOperator'] = 'LIKE';
+	check(
+		'an explicit compare operator overrides the default',
+		$bridge->build_query_vars( [], $customExplicit, 'q1', 0 )['meta_query'][0]['compare'],
+		'LIKE'
+	);
+
+	// No meta key configured: leave the query untouched.
+	$customEmpty = $customField;
+	unset( $customEmpty['settings']['customFieldKey'] );
+	check( 'customField with no key is a no-op', $bridge->build_query_vars( [], $customEmpty, 'q1', 0 ), [] );
 
 	// A native filter must pass through our hook untouched.
 	$nativeFilter = [

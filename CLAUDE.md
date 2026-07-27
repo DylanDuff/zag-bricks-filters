@@ -71,9 +71,13 @@ The native builders (`build_taxonomy_query_vars` et al, `:2444` onward) are all
 `private static` and so must be reproduced rather than called. Keep the copies
 structurally close to the originals so divergence is easy to spot.
 
-**Currently only `filterSource = taxonomy` is implemented.** `wpField` (`:2497`,
-~106 lines) and `customField` (`:2603`, ~92 lines) are not yet ported — a filter
-configured with either source will render but silently fail to filter.
+All three filter sources are ported: `taxonomy`, `wpField` and `customField`.
+
+The native builders branch on `instance_name === 'filter-checkbox'` to pick
+array-vs-scalar semantics. Our name never matches, so every such branch keys off
+`is_multi()` (the `zagMultiple` setting) instead. Three places depend on it:
+`post_author` choosing `author__in` over `author`, the default compare operator
+(`IN` vs `=`), and the AND-logic clause splitting.
 
 Each builder must write its clause back onto
 `Bricks\Query_Filters::$active_filters[$query_id][$index]` as `query_vars` /
@@ -163,14 +167,6 @@ If anything below a Zag element ever stops responding to clicks, check
 
 Ordered roughly by how likely they are to bite.
 
-- **`filterSource` = `wpField` / `customField` don't filter.** Only `taxonomy`
-  is ported. Such a filter renders and looks normal but silently does nothing.
-  See section 3.
-- **AND-mode counts are wrong for multi-select.** `set_options_with_count()`
-  gates its AND-combine branch on `$this->name === 'filter-checkbox'`
-  (`filter-base.php:580`). Filtering is correct — the bridge builds AND clauses
-  itself — but counts are computed as though the logic were OR. Filtering and
-  counting are separate code paths here. *Not yet verified in practice.*
 - **No date picker yet.** `build_datepicker_query_vars` (`:2799`, ~120 lines) is
   the heaviest port, and Bricks stores the flatpickr instance on the filter
   instance and calls `.clear()` / `.setDate()` on reset — so a Zag date picker
