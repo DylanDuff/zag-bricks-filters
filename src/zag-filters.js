@@ -79,7 +79,15 @@ function mount(root) {
 		collection,
 		multiple,
 		closeOnSelect: !multiple,
-		value: toArray(config.value),
+		/**
+		 * defaultValue, not value.
+		 *
+		 * `value` makes the machine controlled: it defers to the prop and never
+		 * mutates its own state, so selections fire onValueChange but never
+		 * repaint. We drive the value imperatively through api.setValue() in
+		 * resync(), which is the uncontrolled pattern.
+		 */
+		defaultValue: toArray(config.value),
 		positioning: {
 			placement: config.placement || 'bottom-start',
 			sameWidth: config.sameWidth !== false,
@@ -253,6 +261,13 @@ function syncNative(instance, values) {
 	native.dispatchEvent(new Event('change', { bubbles: true }))
 }
 
+function isSameValue(a, b) {
+	const left = toArray(a)
+	const right = toArray(b)
+
+	return left.length === right.length && left.every((value) => right.includes(value))
+}
+
 function applyFilter(instance, values) {
 	const filter = instance.filterInstance
 
@@ -261,6 +276,17 @@ function applyFilter(instance, values) {
 	}
 
 	const next = instance.multiple ? values.map(String) : String(values[0] || '')
+
+	/**
+	 * resync() drives the machine with api.setValue(), which also fires
+	 * onValueChange and lands us here. Comparing against the value Bricks
+	 * already holds keeps a programmatic sync from kicking off a second,
+	 * redundant round trip — without depending on when onValueChange fires
+	 * relative to setValue returning.
+	 */
+	if (isSameValue(filter.currentValue, next)) {
+		return
+	}
 
 	filter.currentValue = next
 
@@ -293,15 +319,10 @@ function resync() {
 			return
 		}
 
-		const expected = toArray(filter.currentValue)
 		const api = select.connect(instance.machine.service, normalizeProps)
-		const current = api.value || []
 
-		const same =
-			expected.length === current.length && expected.every((value) => current.includes(value))
-
-		if (!same) {
-			api.setValue(expected)
+		if (!isSameValue(filter.currentValue, api.value || [])) {
+			api.setValue(toArray(filter.currentValue))
 		}
 	})
 }
