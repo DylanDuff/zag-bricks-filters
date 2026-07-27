@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/design-system/components/fig-tokens.css">
+  <link rel="stylesheet" href="_ds/design-system/styles.css">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{
+      background:
+        radial-gradient(120% 80% at 50% -10%, rgba(94,180,225,0.10), transparent 60%),
+        var(--ds-bg, #F6F3EF);
+      color:var(--ds-navy,#0B1F3A);
+      font-family:"Sanomat Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing:antialiased;
+    }
+    a{color:var(--ds-accent,#5EB4E1);text-decoration:none}
+    a:hover{color:var(--ds-deep-teal,#005A77)}
+
+    .stage{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:88px 24px 40px}
+    .stage-inner{width:100%;max-width:520px;display:flex;flex-direction:column;align-items:flex-start;gap:22px}
+    .eyebrow{
+      margin:0;display:inline-flex;align-items:center;gap:8px;
+      font-size:12px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--ds-accent,#5EB4E1);
+    }
+    .eyebrow::before{content:"";width:22px;height:1px;background:currentColor;display:inline-block}
+    .headline{
+      margin:0;font-family:"Apud","Newsreader",Georgia,serif;font-weight:500;
+      font-size:34px;line-height:1.12;letter-spacing:-0.01em;color:var(--ds-navy,#0B1F3A);text-wrap:pretty;
+    }
+    .subhead{margin:-8px 0 4px;font-size:15px;line-height:1.5;color:rgba(11,31,59,0.6);max-width:40ch}
+
+    /* ---- date picker field ---- */
+    .dp{position:relative;width:340px;max-width:100%;--dp-accent:#5EB4E1;display:flex;flex-direction:column;gap:8px}
+    .dp-label{font-size:14px;font-weight:400;letter-spacing:0.02em;color:rgba(11,31,59,0.8)}
+    .dp-control{
+      display:flex;align-items:center;gap:12px;height:48px;border-radius:8px;
+      background:rgb(247,249,250);box-shadow:inset 0 0 0 1px rgba(197,208,219,0.5);
+      padding:0 12px 0 16px;transition:box-shadow .18s ease;
+    }
+    .dp-control:hover{box-shadow:inset 0 0 0 1px rgba(147,163,181,0.75)}
+    .dp-control:focus-within{box-shadow:inset 0 0 0 1px var(--dp-accent), 0 0 0 4px rgba(94,180,225,0.22)}
+    .dp[data-open="true"] .dp-control{box-shadow:inset 0 0 0 1px var(--dp-accent)}
+    .dp-input{
+      flex:1 1 auto;min-width:0;border:0;background:transparent;outline:none;padding:0;margin:0;
+      font-family:inherit;font-size:calc(var(--text-sizes-text-regular,16) * 1px);letter-spacing:0.02em;
+      color:rgba(11,31,59,0.9);
+    }
+    .dp-input::placeholder{color:rgba(11,31,59,0.5)}
+    .dp-trigger{
+      appearance:none;border:0;background:transparent;cursor:pointer;padding:0;flex-shrink:0;
+      width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:rgba(11,31,59,0.8);
+      border-radius:6px;transition:color .12s ease;
+    }
+    .dp-trigger:hover{color:var(--dp-accent)}
+
+    /* ---- popover ---- */
+    .dp-positioner{pointer-events:none;z-index:1 !important}
+    .dp[data-open="true"] .dp-positioner{z-index:1000 !important}
+    .dp-content{
+      background:#fff;border-radius:16px;
+      box-shadow:0 0 10px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.10);
+      padding:20px;display:flex;flex-direction:column;gap:14px;width:max-content;
+      transform-origin:top center;
+      opacity:0;transform:translateY(-6px) scale(.98);visibility:hidden;pointer-events:none;
+      transition:opacity .16s ease, transform .2s cubic-bezier(.16,1,.3,1), visibility 0s linear .2s;
+    }
+    .dp-positioner[data-placement^="top"] .dp-content{transform-origin:bottom center;transform:translateY(6px) scale(.98)}
+    .dp-content[data-state="open"]{
+      opacity:1;transform:none;visibility:visible;pointer-events:auto;
+      transition:opacity .16s ease, transform .22s cubic-bezier(.16,1,.3,1), visibility 0s;
+    }
+
+    .dp-viewctl{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .dp-nav{
+      appearance:none;border:0;background:transparent;cursor:pointer;
+      width:34px;height:34px;border-radius:9999px;display:flex;align-items:center;justify-content:center;
+      color:var(--ds-navy,#0B1F3A);transition:background .12s ease;
+    }
+    .dp-nav:hover{background:rgb(247,249,250)}
+    .dp-nav[data-disabled]{opacity:.3;cursor:default;background:transparent}
+    .dp-title{
+      appearance:none;border:0;background:transparent;cursor:pointer;
+      font-family:inherit;font-size:calc(var(--text-sizes-text-regular,16) * 1px);letter-spacing:0.02em;
+      color:rgb(11,31,59);padding:6px 12px;border-radius:8px;transition:background .12s ease;
+    }
+    .dp-title:hover{background:rgb(247,249,250)}
+
+    .dp-table{border-collapse:collapse}
+    .dp-wd{width:40px;height:30px;font-weight:400;font-size:12px;letter-spacing:0.02em;color:rgba(11,31,59,0.45);text-align:center}
+    .dp-table td{padding:1px;text-align:center}
+    .dp-day{
+      width:40px;height:40px;margin:0 auto;border-radius:9999px;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:300;font-size:15px;letter-spacing:0.02em;color:rgba(11,31,59,0.85);
+      cursor:pointer;user-select:none;transition:background .12s ease, color .12s ease, box-shadow .12s ease;
+    }
+    .dp-day[data-outside-range]{color:rgba(11,31,59,0.28)}
+    .dp-day[data-today]{box-shadow:inset 0 0 0 1px rgba(11,31,59,0.18)}
+    .dp-day[data-highlighted]:not([data-disabled]):not([data-selected]){background:rgb(247,249,250)}
+    .dp-day[data-focus]:not([data-disabled]):not([data-selected]){box-shadow:inset 0 0 0 2px rgba(94,180,225,0.5)}
+    .dp-day[data-selected]{background:var(--dp-accent);color:#fff;font-weight:400;box-shadow:none}
+    .dp-day[data-disabled]{color:rgba(11,31,59,0.22);cursor:default}
+    .dp-day[data-unavailable]{color:rgba(11,31,59,0.22);cursor:default}
+
+    .dp-grid td{padding:3px}
+    .dp-cell{
+      min-width:88px;height:44px;padding:0 14px;border-radius:10px;
+      display:flex;align-items:center;justify-content:center;
+      font-weight:300;font-size:15px;color:rgba(11,31,59,0.85);cursor:pointer;user-select:none;
+      transition:background .12s ease, color .12s ease, box-shadow .12s ease;
+    }
+    .dp-cell[data-highlighted]:not([data-selected]){background:rgb(247,249,250)}
+    .dp-cell[data-focus]:not([data-selected]){box-shadow:inset 0 0 0 2px rgba(94,180,225,0.5)}
+    .dp-cell[data-selected]{background:var(--dp-accent);color:#fff;font-weight:400}
+    .dp-cell[data-disabled]{color:rgba(11,31,59,0.22);cursor:default}
+
+    .dp-caption{
+      margin:2px 0 0;font-size:13px;letter-spacing:0.01em;color:rgba(11,31,59,0.5);
+      display:inline-flex;align-items:center;gap:8px;min-height:18px;
+    }
+    .dp-caption .dot{width:7px;height:7px;border-radius:50%;background:rgba(11,31,59,0.2);transition:background .2s ease}
+    .dp-caption.is-set .dot{background:var(--ds-accent,#5EB4E1)}
+  </style>
+</helmet>
+<div class="stage">
+  <div class="stage-inner">
+    <p class="eyebrow">Book an appointment</p>
+    <h1 class="headline">Pick a date that works for you</h1>
+    <p class="subhead">Choose your preferred appointment date. Past dates are unavailable.</p>
+
+    <div class="dp">
+      <label class="dp-label">Appointment date</label>
+      <div class="dp-control">
+        <input class="dp-input" type="text" placeholder="dd / mm / yyyy" autocomplete="off" />
+        <button class="dp-trigger" type="button" aria-label="Open calendar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <rect x="3.75" y="5.5" width="16.5" height="15" rx="3" stroke="currentColor" stroke-width="1.6"></rect>
+            <path d="M3.75 9.75 H20.25" stroke="currentColor" stroke-width="1.6"></path>
+            <path d="M8 3.5 V6.5 M16 3.5 V6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+          </svg>
+        </button>
+      </div>
+      <div class="dp-positioner">
+        <div class="dp-content"></div>
+      </div>
+    </div>
+
+    <p class="dp-caption"><span class="dot"></span><span class="dp-caption-text">No date selected</span></p>
+  </div>
+</div>
+
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="18" fill="#0B1F3A"/><rect x="28" y="30" width="44" height="40" rx="7" fill="none" stroke="#F6F3EF" stroke-width="3"/><path d="M28 42h44" stroke="#F6F3EF" stroke-width="3"/><path d="M40 26v8M60 26v8" stroke="#F6F3EF" stroke-width="3" stroke-linecap="round"/><circle cx="58" cy="56" r="6" fill="#5EB4E1"/></svg></template></x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;placement&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;below&quot;, &quot;above&quot;], &quot;default&quot;: &quot;below&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Behaviour&quot; },
+  &quot;minToday&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Behaviour&quot; },
+  &quot;accent&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;options&quot;: [&quot;#5EB4E1&quot;, &quot;#005A77&quot;, &quot;#73A8A0&quot;, &quot;#C95D4F&quot;], &quot;default&quot;: &quot;#5EB4E1&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Appearance&quot; }
+}">
+class Component extends DCLogic {
+  renderVals() { return {}; }
+
+  componentDidMount() {
+    this._mounted = true;
+    this.initZag();
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.placement !== this.props.placement || prevProps.minToday !== this.props.minToday) {
+      this.teardown();
+      this.initZag();
+    } else {
+      this.applyStyleProps();
+      if (this._render) this._render();
+    }
+  }
+
+  componentWillUnmount() {
+    this._mounted = false;
+    this.teardown();
+  }
+
+  teardown() {
+    try { this._machine && this._machine.stop(); } catch (e) {}
+    this._machine = null;
+    this._render = null;
+  }
+
+  applyStyleProps() {
+    const root = document.querySelector(".dp");
+    if (!root) return;
+    let a = this.props.accent;
+    if (Array.isArray(a)) a = a[0];
+    a = a || "#5EB4E1";
+    root.style.setProperty("--dp-accent", a);
+  }
+
+  async initZag() {
+    const root = document.querySelector(".dp");
+    if (!root) return;
+    this.applyStyleProps();
+
+    let vanilla, datepicker, idate;
+    try {
+      [vanilla, datepicker, idate] = await Promise.all([
+        import("https://esm.sh/@zag-js/vanilla@1"),
+        import("https://esm.sh/@zag-js/date-picker@1"),
+        import("https://esm.sh/@internationalized/date@3"),
+      ]);
+    } catch (e) {
+      console.error("Failed to load Zag date-picker", e);
+      return;
+    }
+    if (!this._mounted) return;
+
+    const { VanillaMachine, normalizeProps, spreadProps } = vanilla;
+    const { today, getLocalTimeZone } = idate;
+
+    const controlEl = root.querySelector(".dp-control");
+    const labelEl = root.querySelector(".dp-label");
+    const inputEl = root.querySelector(".dp-input");
+    const triggerEl = root.querySelector(".dp-trigger");
+    const positionerEl = root.querySelector(".dp-positioner");
+    const contentEl = root.querySelector(".dp-content");
+    const scope = root.closest(".stage-inner") || document;
+    const captionText = scope.querySelector(".dp-caption-text");
+
+    const cfg = {
+      id: "dp-" + Math.random().toString(36).slice(2, 8),
+      locale: "en-AU",
+      startOfWeek: 1,
+      positioning: {
+        placement: this.props.placement === "above" ? "top-start" : "bottom-start",
+        gutter: 8,
+      },
+    };
+    if (this.props.minToday !== false) cfg.min = today(getLocalTimeZone());
+
+    const machine = new VanillaMachine(datepicker.machine, cfg);
+    machine.start();
+    this._machine = machine;
+
+    const SVG_L = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M14.5 7 L9.5 12 L14.5 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+    const SVG_R = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9.5 7 L14.5 12 L9.5 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+    const iconNode = (html) => { const s = document.createElement("span"); s.style.display = "inline-flex"; s.innerHTML = html; return s; };
+
+    const h = (tag, props, ...kids) => {
+      const n = document.createElement(tag);
+      if (props) spreadProps(n, props);
+      for (const k of kids) {
+        if (k == null || k === false) continue;
+        n.append(k.nodeType ? k : document.createTextNode(String(k)));
+      }
+      return n;
+    };
+
+    const buildDay = (api) => {
+      const table = h("table", api.getTableProps ? api.getTableProps({ view: "day" }) : null);
+      table.className = "dp-table";
+      const thead = document.createElement("thead");
+      const hr = document.createElement("tr");
+      (api.weekDays || []).forEach((d) => {
+        const th = document.createElement("th");
+        th.className = "dp-wd";
+        th.setAttribute("scope", "col");
+        th.setAttribute("aria-label", d.long || "");
+        th.textContent = (d.long || d.short || d.narrow || "").slice(0, 2);
+        hr.append(th);
+      });
+      thead.append(hr);
+      table.append(thead);
+      const tbody = h("tbody", api.getTableBodyProps ? api.getTableBodyProps({ view: "day" }) : null);
+      (api.weeks || []).forEach((week) => {
+        const tr = h("tr", api.getTableRowProps ? api.getTableRowProps({ view: "day" }) : null);
+        week.forEach((value) => {
+          const td = h("td", api.getDayTableCellProps({ value }));
+          const trg = h("div", api.getDayTableCellTriggerProps({ value }));
+          trg.className = "dp-day";
+          trg.textContent = value.day;
+          td.append(trg);
+          tr.append(td);
+        });
+        tbody.append(tr);
+      });
+      table.append(tbody);
+      return table;
+    };
+
+    const buildGrid = (api, kind) => {
+      const rows = kind === "month"
+        ? api.getMonthsGrid({ columns: 3, format: "short" })
+        : api.getYearsGrid({ columns: 3 });
+      const table = document.createElement("table");
+      table.className = "dp-table dp-grid";
+      const tbody = document.createElement("tbody");
+      (rows || []).forEach((row) => {
+        const tr = document.createElement("tr");
+        row.forEach((cell) => {
+          const cp = kind === "month"
+            ? api.getMonthTableCellProps({ value: cell.value, columns: 3 })
+            : api.getYearTableCellProps({ value: cell.value, columns: 3 });
+          const tp = kind === "month"
+            ? api.getMonthTableCellTriggerProps({ value: cell.value, columns: 3 })
+            : api.getYearTableCellTriggerProps({ value: cell.value, columns: 3 });
+          const td = h("td", cp);
+          const trg = h("div", tp);
+          trg.className = "dp-cell";
+          trg.textContent = cell.label;
+          td.append(trg);
+          tr.append(td);
+        });
+        tbody.append(tr);
+      });
+      table.append(tbody);
+      return table;
+    };
+
+    const render = () => {
+      const api = datepicker.connect(machine.service, normalizeProps);
+      spreadProps(controlEl, api.getControlProps());
+      if (labelEl && api.getLabelProps) spreadProps(labelEl, api.getLabelProps());
+      spreadProps(inputEl, api.getInputProps());
+      spreadProps(triggerEl, api.getTriggerProps());
+      spreadProps(positionerEl, api.getPositionerProps());
+      spreadProps(contentEl, api.getContentProps());
+      positionerEl.removeAttribute("hidden");
+      contentEl.removeAttribute("hidden");
+      root.dataset.open = api.open ? "true" : "false";
+
+      contentEl.innerHTML = "";
+      const view = api.view || "day";
+
+      const vc = h("div", api.getViewControlProps ? api.getViewControlProps({ view }) : null);
+      vc.className = "dp-viewctl";
+      const prev = h("button", api.getPrevTriggerProps ? api.getPrevTriggerProps({ view }) : null);
+      prev.className = "dp-nav";
+      prev.append(iconNode(SVG_L));
+      const title = h("button", api.getViewTriggerProps ? api.getViewTriggerProps({ view }) : null);
+      title.className = "dp-title";
+      let tt = "";
+      try { tt = api.visibleRangeText && api.visibleRangeText.start; } catch (e) {}
+      title.textContent = tt || String((api.focusedValue && api.focusedValue.year) || "");
+      const next = h("button", api.getNextTriggerProps ? api.getNextTriggerProps({ view }) : null);
+      next.className = "dp-nav";
+      next.append(iconNode(SVG_R));
+      vc.append(prev, title, next);
+      contentEl.append(vc);
+
+      contentEl.append(view === "day" ? buildDay(api) : buildGrid(api, view));
+
+      const has = Array.isArray(api.value) ? api.value.length > 0 : !!api.value;
+      const val = (Array.isArray(api.valueAsString) ? api.valueAsString.join(", ") : (api.valueAsString || "")).trim();
+      if (captionText) captionText.textContent = has && val ? "Selected · " + val : "No date selected";
+      const cap = captionText && captionText.closest(".dp-caption");
+      if (cap) cap.classList.toggle("is-set", has && !!val);
+    };
+
+    this._render = render;
+    machine.subscribe(render);
+    render();
+  }
+}
+</script>
+</body>
+</html>
