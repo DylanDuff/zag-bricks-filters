@@ -190,6 +190,21 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			'desc'  => esc_html__( 'Allow selecting more than one option.', 'zag' ),
 		];
 
+		/**
+		 * Shown after the count once more than one option is selected, e.g.
+		 * "3 locations". Only ever appears in the plural, since a single
+		 * selection shows its own label instead — so no singular form is needed.
+		 */
+		$this->controls['zagCounterLabel'] = [
+			'group'       => 'zagFunction',
+			'type'        => 'text',
+			'label'       => esc_html__( 'Counter label', 'zag' ),
+			'inline'      => true,
+			'placeholder' => esc_html__( 'selected', 'zag' ),
+			'desc'        => esc_html__( 'Follows the count, e.g. "3 locations".', 'zag' ),
+			'required'    => [ 'zagMultiple', '!=', '' ],
+		];
+
 		$this->controls['placeholder'] = [
 			'group' => 'zagFunction',
 			'type'   => 'text',
@@ -391,6 +406,9 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			'placement'   => $settings['zagPlacement'] ?? 'bottom-start',
 			'sameWidth'   => ! isset( $settings['zagSameWidth'] ) || ! empty( $settings['zagSameWidth'] ),
 			'placeholder' => $placeholder,
+			'counterLabel' => ! empty( $settings['zagCounterLabel'] )
+				? $this->render_dynamic_data( $settings['zagCounterLabel'] )
+				: esc_html__( 'selected', 'zag' ),
 			'name'        => $this->input_name,
 			'value'       => $current_value,
 			'items'       => $options,

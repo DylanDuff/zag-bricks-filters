@@ -234,7 +234,7 @@ function render(instance, api) {
 		counter.className = 'zag-select__counter'
 		counter.textContent = values.length
 
-		parts.value.append(counter, document.createTextNode(' selected'))
+		parts.value.append(counter, document.createTextNode(` ${config.counterLabel || 'selected'}`))
 	} else {
 		parts.value.textContent = api.valueAsString
 	}
