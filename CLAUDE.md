@@ -182,11 +182,13 @@ If anything below a Zag element ever stops responding to clicks, check
 
 ## Known limitations
 
-- **The date picker UI is date-only.** `enableTime` is a real control and the
-  query layer fully supports it (hour/minute components for `wpField`,
-  `DATETIME` for `customField`), but the Zag UI produces no time component — Zag
-  has no time widget, so this needs a separate input. Ticking Enable time
-  currently changes the query type without changing what can be picked.
+- **The date picker is date-only, by design.** The query layer fully supports
+  time (hour/minute components for `wpField`, `DATETIME` for `customField`) and
+  that code is tested and kept, but Zag has no time widget so the UI never
+  produces one. The `enableTime` control is therefore **deliberately not
+  exposed** — offering it would let someone change the comparison semantics
+  without changing what they can pick. Re-add the control together with a time
+  input, never on its own.
 - **The bundle is one file, ~171kb minified.** Pages using only a select still
   download the date picker. Splitting per element is straightforward if that
   matters.

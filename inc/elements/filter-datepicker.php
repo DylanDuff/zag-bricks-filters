@@ -100,12 +100,16 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 				$filter_controls['customLabelMapping']
 			);
 
-			$filter_controls['enableTime'] = [
-				'label'    => esc_html__( 'Enable time', 'zag' ),
-				'type'     => 'checkbox',
-				'required' => [ [ 'filterSource', '!=', '' ] ],
-			];
-
+			/**
+			 * No 'Enable time' control.
+			 *
+			 * The query layer handles time fully (hour/minute components for
+			 * wpField, DATETIME for customField), but Zag has no time widget so
+			 * the UI only ever produces a date. Exposing the setting would let
+			 * someone switch the comparison semantics without changing what they
+			 * can actually pick. Add the control back alongside a time input,
+			 * not before.
+			 */
 			$filter_controls['isDateRange'] = [
 				'label'    => esc_html__( 'Date range', 'zag' ),
 				'type'     => 'checkbox',
