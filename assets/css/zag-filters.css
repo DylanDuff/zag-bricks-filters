@@ -42,6 +42,9 @@
    ========================================================================== */
 
 .zag-select {
+	--zag-icon-size: 40px;
+	--zag-icon-radius: 9999px;
+	--zag-icon-bg: #fff;
 	--zag-menu-padding: 4px;
 	--zag-option-height: 48px;
 	--zag-option-radius: 8px;
@@ -99,6 +102,38 @@
 .zag-select__trigger[data-disabled] {
 	opacity: 0.55;
 	cursor: not-allowed;
+}
+
+/**
+ * Leading icon slot.
+ *
+ * The ref pairs a 40px white circle with its pill variant. Here it's
+ * independent of the field radius, so a pill is just a large Field radius and
+ * the icon works with any shape.
+ */
+.zag-select__icon {
+	width: var(--zag-icon-size);
+	height: var(--zag-icon-size);
+	flex-shrink: 0;
+	border-radius: var(--zag-icon-radius);
+	background: var(--zag-icon-bg);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--zag-fg);
+	overflow: hidden;
+}
+
+.zag-select__icon svg,
+.zag-select__icon img {
+	width: 50%;
+	height: 50%;
+	object-fit: contain;
+}
+
+/* Tuck the field's leading padding in so the icon sits flush, as in the ref. */
+.zag-select__trigger.has-icon {
+	padding-left: 4px;
 }
 
 .zag-select__value {

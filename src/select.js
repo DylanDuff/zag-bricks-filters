@@ -125,6 +125,19 @@ function buildParts(root, config) {
 	indicator.innerHTML =
 		'<svg width="12" height="8" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1.5 L6 6.5 L11 1.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
+	/**
+	 * Relocate the server-rendered icon into the trigger.
+	 *
+	 * Moving the node keeps Bricks' icon markup and classes intact, and means no
+	 * arbitrary HTML is ever assigned through innerHTML.
+	 */
+	const icon = root.querySelector('[data-zag-icon]')
+
+	if (icon) {
+		trigger.append(icon)
+		trigger.classList.add('has-icon')
+	}
+
 	trigger.append(value, indicator)
 	control.append(trigger)
 

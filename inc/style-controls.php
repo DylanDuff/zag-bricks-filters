@@ -25,6 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 function css_var_control( $label, $type, $property, $default, $extra = [] ) {
 	return array_merge(
 		[
+			'tab'     => 'style',
 			'group'   => 'zagStyle',
 			'label'   => $label,
 			'type'    => $type,
@@ -47,6 +48,7 @@ function css_var_control( $label, $type, $property, $default, $extra = [] ) {
 function shared_style_controls() {
 	return [
 		'zagPaletteSep' => [
+			'tab'   => 'style',
 			'group' => 'zagStyle',
 			'label' => esc_html__( 'Palette', 'zag' ),
 			'type'  => 'separator',
@@ -96,6 +98,7 @@ function shared_style_controls() {
 		),
 
 		'zagFieldSep' => [
+			'tab'   => 'style',
 			'group' => 'zagStyle',
 			'label' => esc_html__( 'Field', 'zag' ),
 			'type'  => 'separator',
@@ -121,6 +124,7 @@ function shared_style_controls() {
 		),
 
 		'zagPopoverSep' => [
+			'tab'   => 'style',
 			'group' => 'zagStyle',
 			'label' => esc_html__( 'Popover', 'zag' ),
 			'type'  => 'separator',
@@ -135,6 +139,7 @@ function shared_style_controls() {
 		 * layer replaces it — which is a choice, not a silent downgrade.
 		 */
 		'zagPopoverShadow' => [
+			'tab'         => 'style',
 			'group'       => 'zagStyle',
 			'label'       => esc_html__( 'Shadow', 'zag' ),
 			'type'        => 'box-shadow',
@@ -154,7 +159,47 @@ function shared_style_controls() {
  */
 function select_style_controls() {
 	return [
+		'zagIconSep' => [
+			'tab'      => 'style',
+			'group'    => 'zagStyle',
+			'label'    => esc_html__( 'Icon', 'zag' ),
+			'type'     => 'separator',
+			'required' => [ 'zagIcon', '!=', '' ],
+		],
+
+		'zagIconSize' => css_var_control(
+			esc_html__( 'Size', 'zag' ),
+			'number',
+			'--zag-icon-size',
+			'40px',
+			[
+				'units'    => true,
+				'required' => [ 'zagIcon', '!=', '' ],
+			]
+		),
+
+		'zagIconRadius' => css_var_control(
+			esc_html__( 'Radius', 'zag' ),
+			'number',
+			'--zag-icon-radius',
+			'9999px',
+			[
+				'units'       => true,
+				'description' => esc_html__( 'Defaults to a circle.', 'zag' ),
+				'required'    => [ 'zagIcon', '!=', '' ],
+			]
+		),
+
+		'zagIconBg' => css_var_control(
+			esc_html__( 'Background', 'zag' ),
+			'color',
+			'--zag-icon-bg',
+			[ 'hex' => '#ffffff' ],
+			[ 'required' => [ 'zagIcon', '!=', '' ] ]
+		),
+
 		'zagMenuSep' => [
+			'tab'   => 'style',
 			'group' => 'zagStyle',
 			'label' => esc_html__( 'Menu', 'zag' ),
 			'type'  => 'separator',
@@ -208,6 +253,7 @@ function select_style_controls() {
 function datepicker_style_controls() {
 	return [
 		'zagCalendarSep' => [
+			'tab'   => 'style',
 			'group' => 'zagStyle',
 			'label' => esc_html__( 'Calendar', 'zag' ),
 			'type'  => 'separator',

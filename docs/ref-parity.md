@@ -23,8 +23,13 @@ varied is now a custom property defaulted to the ref, and the Bricks **Style →
 Zag** group writes those same properties — so an untouched element matches the
 ref and any override wins without a specificity fight.
 
-**Outstanding: the feature-level gaps** — S1, S2, S3, S4, D1, D3. Each needs new
-markup or controls rather than CSS, so they're grouped as one decision below.
+**S3 / S4 resolved by design decision.** No pill display mode: a pill is simply a
+large Field radius, which gives more control than a fixed mode would. The icon
+slot — the part that couldn't be expressed as a style value — became an Icon
+control with its own size, radius and background.
+
+**Outstanding: S1, S2, D1, D3** — label, caption and the typeable date input.
+Each needs new markup or controls rather than CSS.
 
 Resolved rows are struck through and kept for reference.
 
@@ -48,8 +53,8 @@ Resolved rows are struck through and kept for reference.
 |---|---|---|---|
 | S1 | **Field label** | `.loc-label`, 14px, shown above the field in the standard variant | No label control at all |
 | S2 | **Caption / helper text** | `.loc-caption` with a status dot that fills with accent when set | Absent |
-| S3 | **Pill variant** | Base `.loc` is a 99px-radius pill, `padding:0 16px 0 4px` | Only the 8px "standard" form field exists |
-| S4 | **Leading icon slot** | `.loc-icon`, 40px white circle inside the pill | Absent — needed for the pill variant to read correctly |
+| ~~S3~~ | **Pill variant** | Base `.loc` is a 99px-radius pill, `padding:0 16px 0 4px` | Only the 8px "standard" form field exists |
+| ~~S4~~ | **Leading icon slot** | `.loc-icon`, 40px white circle inside the pill | Absent — needed for the pill variant to read correctly |
 | ~~S5~~ | **Option gap** | menu is `flex-direction:column; gap:2px` | Options stack flush |
 
 ## Select — drift
@@ -118,10 +123,6 @@ prototype's surrounding chrome the elements should own.
   field and a caption below with a status dot that fills with accent once set.
   Both need new controls and markup.
 - **S2 — see S1.**
-- **S3 / S4 — pill display mode.** The ref's base select is a 99px pill with a
-  40px white circular icon slot on the left. Needs a display-mode control and an
-  icon control; the radius alone is already reachable via the Field radius
-  control, but the icon slot is not.
 - **D1 — typeable date input.** The ref's `.dp-control` wraps a real `<input>`
   plus a small calendar trigger, so a date can be typed. Ours is a single
   button. This changes the element's interaction model and its progressive

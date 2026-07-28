@@ -136,6 +136,20 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			'type'  => 'separator',
 		];
 
+		/**
+		 * Leading icon.
+		 *
+		 * The ref pairs this with its pill variant, but a pill is just a large
+		 * Field radius — no display mode needed, and the user keeps full control
+		 * of the shape. The icon is the part that couldn't be expressed as a
+		 * style value, so it's the only piece that became a control.
+		 */
+		$this->controls['zagIcon'] = [
+			'type'  => 'icon',
+			'label' => esc_html__( 'Icon', 'zag' ),
+			'desc'  => esc_html__( 'Shown at the start of the field.', 'zag' ),
+		];
+
 		$this->controls['zagMultiple'] = [
 			'type'  => 'checkbox',
 			'label' => esc_html__( 'Multi-select', 'zag' ),
@@ -358,6 +372,18 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 		}
 
 		echo "<div {$this->render_attributes('_root')}>";
+
+		/**
+		 * Rendered here rather than passed through the config JSON so the icon
+		 * markup never round-trips as a string: select.js relocates this node
+		 * into the trigger, so no arbitrary HTML is ever assigned via innerHTML.
+		 */
+		if ( ! empty( $settings['zagIcon'] ) ) {
+			printf(
+				'<span class="zag-select__icon" data-zag-icon>%s</span>',
+				self::render_icon( $settings['zagIcon'] )
+			);
+		}
 
 		/**
 		 * Progressive enhancement baseline.
