@@ -199,6 +199,21 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 		 * Display only. The stored value stays ISO (Y-m-d), because that is what
 		 * Query_Filters' parser expects — this changes the trigger label alone.
 		 */
+		/**
+		 * Typing needs format and parse to round-trip, which rules out the
+		 * ordinal and long styles — "1st May 2026" is not reliably parseable.
+		 * With typing on, Zag owns the input using its own locale format, so
+		 * Date display no longer applies. Single mode only: one input cannot
+		 * sensibly accept both ends of a range.
+		 */
+		$this->controls['zagTypeable'] = [
+			'group'    => 'zagFunction',
+			'type'     => 'checkbox',
+			'label'    => esc_html__( 'Allow typing', 'zag' ),
+			'desc'     => esc_html__( 'Shows an editable field. Uses the locale date format, so Date display does not apply.', 'zag' ),
+			'required' => [ 'isDateRange', '=', '' ],
+		];
+
 		$this->controls['zagDateFormat'] = [
 			'group' => 'zagFunction',
 			'type'        => 'select',
@@ -213,6 +228,7 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			],
 			'placeholder' => esc_html__( 'Medium', 'zag' ),
 			'description' => esc_html__( 'Rendered in the site language. Does not affect the stored value. Ordinal applies to English only; other languages fall back to Long.', 'zag' ),
+			'required'    => [ 'zagTypeable', '=', '' ],
 		];
 
 		$this->controls['zagPlacement'] = [
@@ -330,6 +346,8 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 
 		$config = [
 			'mode'        => $this->is_range() ? 'range' : 'single',
+			// Range typing would need two inputs; the ref is single-date only.
+			'typeable'    => ! $this->is_range() && ! empty( $settings['zagTypeable'] ),
 			'enableTime'  => $this->has_time(),
 			'placeholder' => $placeholder,
 			'placement'   => $settings['zagPlacement'] ?? 'bottom-start',

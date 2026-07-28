@@ -184,9 +184,11 @@ export function mountDatepicker(root) {
 
 	const parts = buildParts(root, config)
 
-	native.hidden = true
-	native.setAttribute('aria-hidden', 'true')
-	native.tabIndex = -1
+	if (!parts.input) {
+		native.hidden = true
+		native.setAttribute('aria-hidden', 'true')
+		native.tabIndex = -1
+	}
 
 	const api = () => datePicker.connect(machine.service, normalizeProps)
 
@@ -267,7 +269,7 @@ function buildParts(root, config) {
 	positioner.append(content)
 	root.append(control, positioner)
 
-	return { label, control, trigger, value, positioner, content }
+	return { label, control, trigger, value, input, positioner, content }
 }
 
 /** Small hyperscript helper — the calendar is rebuilt wholesale each render. */
@@ -383,6 +385,10 @@ function render(instance, api) {
 
 	spreadProps(parts.control, api.getControlProps())
 	spreadProps(parts.trigger, api.getTriggerProps())
+
+	if (parts.input) {
+		spreadProps(parts.input, api.getInputProps())
+	}
 	spreadProps(parts.positioner, api.getPositionerProps())
 	spreadProps(parts.content, api.getContentProps())
 
@@ -420,9 +426,11 @@ function render(instance, api) {
 	const locale = config.locale || 'en-GB'
 	const style = config.dateStyle || 'medium'
 
-	parts.value.textContent = values.length ? formatDates(values, locale, style) : config.placeholder
-
-	parts.value.classList.toggle('is-selected', values.length > 0)
+	// With typing on, Zag owns the input's text; there's no label span to paint.
+	if (parts.value) {
+		parts.value.textContent = values.length ? formatDates(values, locale, style) : config.placeholder
+		parts.value.classList.toggle('is-selected', values.length > 0)
+	}
 
 	updateCaption(root, values.length ? formatDates(values, locale, style) : '')
 }
@@ -447,7 +455,10 @@ function onValueChange(root, details) {
 
 	const joined = values.map(ISO).join(',')
 
-	instance.native.value = joined
+	if (!instance.parts.input) {
+		instance.native.value = joined
+	}
+
 	instance.native.dispatchEvent(new Event('change', { bubbles: true }))
 
 	emitChange(instance, { value: joined, dates: values.map(ISO) })
