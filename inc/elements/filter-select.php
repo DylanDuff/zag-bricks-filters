@@ -137,14 +137,6 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			$this->controls = array_merge( $this->controls, $filter_controls );
 		}
 
-		/**
-		 * Leading icon.
-		 *
-		 * The ref pairs this with its pill variant, but a pill is just a large
-		 * Field radius — no display mode needed, and the user keeps full control
-		 * of the shape. The icon is the part that couldn't be expressed as a
-		 * style value, so it's the only piece that became a control.
-		 */
 		$this->controls['zagLabel'] = [
 			'group'  => 'zagFunction',
 			'type'   => 'text',
@@ -176,6 +168,14 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			'required'    => [ 'zagCaption', '!=', '' ],
 		];
 
+		/**
+		 * Leading icon.
+		 *
+		 * The ref pairs this with its pill variant, but a pill is just a large
+		 * Field radius — no display mode needed, and the user keeps full control
+		 * of the shape. The icon is the part that couldn't be expressed as a
+		 * style value, so it's the only piece that became a control.
+		 */
 		$this->controls['zagIcon'] = [
 			'group' => 'zagFunction',
 			'type'  => 'icon',
@@ -222,6 +222,14 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 				'top-start'    => esc_html__( 'Above', 'zag' ),
 			],
 			'placeholder' => esc_html__( 'Below', 'zag' ),
+		];
+
+		$this->controls['zagMenuScroll'] = [
+			'group'   => 'zagFunction',
+			'type'    => 'checkbox',
+			'label'   => esc_html__( 'Limit menu height', 'zag' ),
+			'desc'    => esc_html__( 'Off: the menu grows to fit every option instead of scrolling.', 'zag' ),
+			'default' => true,
 		];
 
 		$this->controls['zagSameWidth'] = [
@@ -413,6 +421,16 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			'value'       => $current_value,
 			'items'       => $options,
 		];
+
+		/**
+		 * Unset counts as on, so elements saved before this control existed keep
+		 * the capped, scrolling menu they were built with.
+		 */
+		$limit_height = ! isset( $settings['zagMenuScroll'] ) || ! empty( $settings['zagMenuScroll'] );
+
+		if ( ! $limit_height ) {
+			$this->set_attribute( '_root', 'data-zag-menu-uncapped', 'true' );
+		}
 
 		$this->set_attribute( '_root', 'class', 'zag-select' );
 		$this->set_attribute( '_root', 'data-zag-select', wp_json_encode( $config ) );

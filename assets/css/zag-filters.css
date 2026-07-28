@@ -258,6 +258,18 @@
 	background-color: var(--zag-scrollbar-hover, color-mix(in srgb, var(--zag-fg, #0b1f3a) 32%, transparent));
 }
 
+/**
+ * Uncapped menu.
+ *
+ * With Limit menu height off, the menu grows to fit every option. overflow
+ * must go back to visible as well as the cap being lifted, or the shadow and
+ * rounded corners still get clipped by the scroll container.
+ */
+.zag-select[data-zag-menu-uncapped] .zag-select__menu {
+	max-height: none;
+	overflow-y: visible;
+}
+
 .zag-select__positioner[data-placement^='top'] .zag-select__menu {
 	transform-origin: bottom center;
 	transform: translateY(6px) scale(0.98);
