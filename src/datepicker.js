@@ -236,6 +236,9 @@ export function mountDatepicker(root) {
 }
 
 function buildParts(root, config) {
+	// Rendered server-side; keep it first so it reads above the field.
+	const label = root.querySelector('[data-zag-label]')
+
 	const control = document.createElement('div')
 	control.className = 'zag-datepicker__control'
 
@@ -264,7 +267,7 @@ function buildParts(root, config) {
 	positioner.append(content)
 	root.append(control, positioner)
 
-	return { control, trigger, value, positioner, content }
+	return { label, control, trigger, value, positioner, content }
 }
 
 /** Small hyperscript helper — the calendar is rebuilt wholesale each render. */
@@ -372,6 +375,12 @@ function render(instance, api) {
 	const { root, parts, config } = instance
 
 	spreadProps(root, api.getRootProps())
+
+	// See the note in select.js: without this the control has no accessible name.
+	if (parts.label) {
+		spreadProps(parts.label, api.getLabelProps({ index: 0 }))
+	}
+
 	spreadProps(parts.control, api.getControlProps())
 	spreadProps(parts.trigger, api.getTriggerProps())
 	spreadProps(parts.positioner, api.getPositionerProps())

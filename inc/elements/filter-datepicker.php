@@ -157,6 +157,21 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			$this->controls = array_merge( $this->controls, $filter_controls );
 		}
 
+		$this->controls['zagLabel'] = [
+			'group'  => 'zagFunction',
+			'type'   => 'text',
+			'label'  => esc_html__( 'Label', 'zag' ),
+			'inline' => true,
+			'desc'   => esc_html__( 'Leave empty to use the placeholder as a hidden accessible name.', 'zag' ),
+		];
+
+		$this->controls['zagLabelHidden'] = [
+			'group' => 'zagFunction',
+			'type'  => 'checkbox',
+			'label' => esc_html__( 'Hide label visually', 'zag' ),
+			'desc'  => esc_html__( 'Still read by screen readers.', 'zag' ),
+		];
+
 		$this->controls['placeholder'] = [
 			'group' => 'zagFunction',
 			'type'   => 'text',
@@ -315,6 +330,24 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 		$this->set_attribute( '_root', 'data-zag-datepicker', wp_json_encode( $config ) );
 
 		echo "<div {$this->render_attributes('_root')}>";
+
+
+		/**
+		 * Always rendered, even with no label text.
+		 *
+		 * Zag's trigger carries aria-labelledby pointing at its label part. With
+		 * no label element that reference dangles and the control has no
+		 * accessible name at all, so fall back to the placeholder and hide it.
+		 */
+		$label_text   = ! empty( $settings['zagLabel'] ) ? $this->render_dynamic_data( $settings['zagLabel'] ) : '';
+		$label_hidden = $label_text === '' || ! empty( $settings['zagLabelHidden'] );
+
+		printf(
+			'<label class="%s__label%s" data-zag-label>%s</label>',
+			'zag-datepicker',
+			$label_hidden ? ' is-hidden' : '',
+			esc_html( $label_text !== '' ? $label_text : $placeholder )
+		);
 
 		/**
 		 * Progressive enhancement baseline.

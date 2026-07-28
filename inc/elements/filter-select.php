@@ -145,6 +145,21 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 		 * of the shape. The icon is the part that couldn't be expressed as a
 		 * style value, so it's the only piece that became a control.
 		 */
+		$this->controls['zagLabel'] = [
+			'group'  => 'zagFunction',
+			'type'   => 'text',
+			'label'  => esc_html__( 'Label', 'zag' ),
+			'inline' => true,
+			'desc'   => esc_html__( 'Leave empty to use the placeholder as a hidden accessible name.', 'zag' ),
+		];
+
+		$this->controls['zagLabelHidden'] = [
+			'group' => 'zagFunction',
+			'type'  => 'checkbox',
+			'label' => esc_html__( 'Hide label visually', 'zag' ),
+			'desc'  => esc_html__( 'Still read by screen readers.', 'zag' ),
+		];
+
 		$this->controls['zagIcon'] = [
 			'group' => 'zagFunction',
 			'type'  => 'icon',
@@ -373,6 +388,24 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 		}
 
 		echo "<div {$this->render_attributes('_root')}>";
+
+
+		/**
+		 * Always rendered, even with no label text.
+		 *
+		 * Zag's trigger carries aria-labelledby pointing at its label part. With
+		 * no label element that reference dangles and the control has no
+		 * accessible name at all, so fall back to the placeholder and hide it.
+		 */
+		$label_text   = ! empty( $settings['zagLabel'] ) ? $this->render_dynamic_data( $settings['zagLabel'] ) : '';
+		$label_hidden = $label_text === '' || ! empty( $settings['zagLabelHidden'] );
+
+		printf(
+			'<label class="%s__label%s" data-zag-label>%s</label>',
+			'zag-select',
+			$label_hidden ? ' is-hidden' : '',
+			esc_html( $label_text !== '' ? $label_text : $placeholder )
+		);
 
 		/**
 		 * Rendered here rather than passed through the config JSON so the icon

@@ -122,6 +122,9 @@ export function mountSelect(root) {
  * should exist for a user without JS, who gets the native <select>.
  */
 function buildParts(root, config) {
+	// Rendered server-side; keep it first so it reads above the field.
+	const label = root.querySelector('[data-zag-label]')
+
 	const control = document.createElement('div')
 	control.className = 'zag-select__control'
 
@@ -186,13 +189,23 @@ function buildParts(root, config) {
 	positioner.append(content)
 	root.append(control, positioner)
 
-	return { control, trigger, value, positioner, content, items }
+	return { label, control, trigger, value, positioner, content, items }
 }
 
 function render(instance, api) {
 	const { root, parts, config, multiple } = instance
 
 	spreadProps(root, api.getRootProps())
+
+	/**
+	 * Binds the label to the control. Without this Zag's aria-labelledby on the
+	 * trigger points at an id nothing carries, leaving the combobox with no
+	 * accessible name.
+	 */
+	if (parts.label) {
+		spreadProps(parts.label, api.getLabelProps())
+	}
+
 	spreadProps(parts.control, api.getControlProps())
 	spreadProps(parts.trigger, api.getTriggerProps())
 	spreadProps(parts.positioner, api.getPositionerProps())
