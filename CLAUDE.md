@@ -182,6 +182,17 @@ trigger is a transparent hit area with no visuals of its own.
 Don't try to out-specify it. If a focus style is needed, move it to a
 non-focusable ancestor.
 
+**It catches the popovers too.** Zag makes both focusable — the select menu
+carries `tabindex="0"`, the calendar `tabindex="-1"` — and focuses them on open,
+so their shadow was stripped for exactly as long as they were open. The
+diagnostic tell is that blurring the browser window restores it, because
+`:focus` stops matching.
+
+There's no non-focusable wrapper to move that one to (the positioner is unstyled
+and the transition lives on the surface), so it's `!important` on the
+declaration — with the value still resolving through `--zag-popover-shadow`, so
+the style control keeps working.
+
 Bricks pairs it with an outline on `:focus-visible` at the same specificity.
 That one *is* suppressed with `!important`, but only on the field-level controls
 (trigger, input, icon button), because their wrapper already draws the focus
