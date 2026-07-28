@@ -35,8 +35,21 @@ export function mountSelect(root) {
 		isItemDisabled: (item) => !!item.disabled
 	})
 
+	/**
+	 * Bricks' element id, which must survive mounting.
+	 *
+	 * getRootProps() sets an id of its own (`select:<machineId>`) and
+	 * spreadProps applies it, renaming the element out from under the
+	 * stylesheet. Bricks generates style control CSS as `#brxe-<id> { … }`
+	 * (assets.php:2897), so once renamed that rule matches nothing and every
+	 * style control silently stops working. Handing Zag the id back through
+	 * `ids.root` keeps both happy.
+	 */
+	const bricksId = root.id
+
 	const machine = new VanillaMachine(select.machine, {
-		id: root.id || `zag-select-${Math.random().toString(36).slice(2, 8)}`,
+		id: bricksId || `zag-select-${Math.random().toString(36).slice(2, 8)}`,
+		ids: bricksId ? { root: bricksId } : undefined,
 		collection,
 		multiple,
 		closeOnSelect: !multiple,

@@ -149,8 +149,12 @@ export function mountDatepicker(root) {
 
 	seedFilterInstance(filterInstance, config.value || '', '')
 
+	// Preserve Bricks' element id through mounting — see the note in select.js.
+	const bricksId = root.id
+
 	const machineConfig = {
-		id: root.id || `zag-datepicker-${Math.random().toString(36).slice(2, 8)}`,
+		id: bricksId || `zag-datepicker-${Math.random().toString(36).slice(2, 8)}`,
+		ids: bricksId ? { root: bricksId } : undefined,
 		locale: config.locale || 'en-GB',
 		startOfWeek: config.startOfWeek ?? 1,
 		selectionMode: range ? 'range' : 'single',
