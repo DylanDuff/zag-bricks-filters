@@ -1,33 +1,56 @@
 /**
  * Zag filter elements.
  *
- * Ported from the ref prototype, de-branded onto custom properties so it can be
- * themed per element from the Bricks style tab. Every colour and radius here is
- * a var with a fallback — override the vars, not the rules.
+ * Every value that differs between designs is a custom property, defaulted to
+ * the Claude Design prototype in ref/. The Bricks style controls write these
+ * same properties onto the element root, so an untouched element is pixel-equal
+ * to the ref and any control override wins without a specificity fight.
+ *
+ * Discrepancies tracked in docs/ref-parity.md.
  */
 
-.zag-select {
+.zag-select,
+.zag-datepicker {
+	/* Palette */
 	--zag-accent: #5eb4e1;
 	--zag-fg: #0b1f3a;
 	--zag-surface: #fff;
 	--zag-field: rgb(247, 249, 250);
 	--zag-border: rgba(197, 208, 219, 0.5);
 	--zag-border-hover: rgba(147, 163, 181, 0.75);
-	--zag-radius: 8px;
-	--zag-height: 48px;
+
+	/* Field */
+	--zag-field-height: 48px;
+	--zag-field-radius: 8px;
+
+	/* Popover — shared so the select menu and the calendar sit at one elevation */
+	--zag-popover-radius: 12px;
+	--zag-popover-shadow: 0 0 10px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.1);
 
 	position: relative;
 	width: 100%;
+	box-sizing: border-box;
 }
 
-/* Only the open dropdown floats above its neighbours. */
-.zag-select[data-open='true'] {
-	z-index: 20;
+.zag-select *,
+.zag-datepicker * {
+	box-sizing: border-box;
+}
+
+/* ==========================================================================
+   Select
+   ========================================================================== */
+
+.zag-select {
+	--zag-menu-padding: 4px;
+	--zag-option-height: 48px;
+	--zag-option-radius: 8px;
+	--zag-option-gap: 2px;
 }
 
 /**
  * Until the bundle mounts, the native <select> is the filter and styles itself.
- * zag-filters.js sets [hidden] on it once the Zag UI is live.
+ * select.js sets [hidden] on it once the Zag UI is live.
  */
 .zag-select__native[hidden] {
 	display: none !important;
@@ -41,9 +64,9 @@
 	text-align: left;
 	cursor: pointer;
 	width: 100%;
-	min-height: var(--zag-height);
+	min-height: var(--zag-field-height);
 	border: 0;
-	border-radius: var(--zag-radius);
+	border-radius: var(--zag-field-radius);
 	background: var(--zag-field);
 	box-shadow: inset 0 0 0 1px var(--zag-border);
 	display: flex;
@@ -79,24 +102,28 @@
 }
 
 .zag-select__value {
+	flex: 1 1 auto;
 	display: flex;
 	align-items: center;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	line-height: 100%;
+	letter-spacing: 0.02em;
 	color: color-mix(in srgb, var(--zag-fg) 55%, transparent);
+	transition: color 0.15s ease;
 }
 
 .zag-select__value.is-selected {
-	color: var(--zag-fg);
+	color: color-mix(in srgb, var(--zag-fg) 95%, transparent);
 }
 
 .zag-select__indicator {
 	display: inline-flex;
 	flex-shrink: 0;
 	opacity: 0.7;
-	transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+	transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .zag-select__trigger[data-state='open'] .zag-select__indicator {
@@ -125,28 +152,34 @@
 /**
  * The positioner stays mounted while closed so the menu's close transition can
  * play, and the menu is hidden with visibility rather than display so it keeps
- * its layout box for measuring. That leaves a full-size, absolutely positioned,
- * invisible box over whatever follows the select — which silently swallowed
- * clicks on anything beneath it, a reset button included.
+ * its layout box. That leaves a full-size, absolutely positioned, invisible box
+ * over whatever follows — it must never take pointer events, or it silently
+ * swallows clicks on anything beneath it. The open menu opts back in below.
  *
- * Never let the positioner itself take pointer events; the open menu opts back
- * in below.
+ * z-index sits on the positioner rather than the root, matching the ref: it
+ * keeps the stacking change scoped to the thing that actually overlaps.
  */
 .zag-select__positioner {
 	pointer-events: none;
+	z-index: 1;
+}
+
+.zag-select[data-open='true'] .zag-select__positioner {
+	z-index: 1000;
 }
 
 .zag-select__menu {
 	list-style: none;
 	margin: 0;
-	padding: 6px;
+	padding: var(--zag-menu-padding);
 	max-height: 320px;
 	overflow-y: auto;
 	background: var(--zag-surface);
-	border-radius: 10px;
-	box-shadow:
-		0 1px 2px rgba(11, 31, 59, 0.06),
-		0 12px 32px rgba(11, 31, 59, 0.12);
+	border-radius: var(--zag-popover-radius);
+	box-shadow: var(--zag-popover-shadow);
+	display: flex;
+	flex-direction: column;
+	gap: var(--zag-option-gap);
 	transform-origin: top center;
 	opacity: 0;
 	transform: translateY(-6px) scale(0.98);
@@ -179,17 +212,20 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: 8px;
-	min-height: 44px;
-	padding: 10px 12px;
-	border-radius: 6px;
+	flex-shrink: 0;
+	height: var(--zag-option-height);
+	padding: 16px 12px;
+	border-radius: var(--zag-option-radius);
 	cursor: pointer;
 	user-select: none;
-	line-height: 1.2;
+	line-height: 100%;
+	letter-spacing: 0.01em;
+	white-space: nowrap;
 	color: color-mix(in srgb, var(--zag-fg) 80%, transparent);
 	transition: background 0.12s ease;
 }
 
-.zag-select__option[data-highlighted] {
+.zag-select__option[data-highlighted]:not([data-disabled]) {
 	background: var(--zag-field);
 }
 
@@ -201,6 +237,11 @@
 .zag-select__option[data-disabled] {
 	opacity: 0.4;
 	cursor: not-allowed;
+}
+
+.zag-select__option-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .zag-select__check {
@@ -230,7 +271,7 @@
 
 .zag-select[data-zag-multiple] .zag-select__check {
 	opacity: 1;
-	border-radius: 3px;
+	border-radius: 2px;
 	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--zag-fg) 15%, transparent);
 	color: #fff;
 	align-items: center;
@@ -258,36 +299,17 @@
 	opacity: 1;
 }
 
-@media (prefers-reduced-motion: reduce) {
-	.zag-select__menu,
-	.zag-select__trigger,
-	.zag-select__indicator,
-	.zag-select__option,
-	.zag-select__check {
-		transition-duration: 0.01ms;
-	}
-}
-
 /* ==========================================================================
    Date picker
    ========================================================================== */
 
 .zag-datepicker {
-	--zag-accent: #5eb4e1;
-	--zag-fg: #0b1f3a;
-	--zag-surface: #fff;
-	--zag-field: rgb(247, 249, 250);
-	--zag-border: rgba(197, 208, 219, 0.5);
-	--zag-border-hover: rgba(147, 163, 181, 0.75);
-	--zag-radius: 8px;
-	--zag-height: 48px;
-
-	position: relative;
-	width: 100%;
-}
-
-.zag-datepicker[data-open='true'] {
-	z-index: 20;
+	--zag-content-padding: 20px;
+	--zag-content-radius: 16px;
+	--zag-day-size: 40px;
+	--zag-day-radius: 9999px;
+	--zag-nav-size: 34px;
+	--zag-cell-radius: 10px;
 }
 
 .zag-datepicker__native[hidden] {
@@ -302,9 +324,9 @@
 	text-align: left;
 	cursor: pointer;
 	width: 100%;
-	min-height: var(--zag-height);
+	min-height: var(--zag-field-height);
 	border: 0;
-	border-radius: var(--zag-radius);
+	border-radius: var(--zag-field-radius);
 	background: var(--zag-field);
 	box-shadow: inset 0 0 0 1px var(--zag-border);
 	display: flex;
@@ -332,39 +354,49 @@
 }
 
 .zag-datepicker__value {
+	flex: 1 1 auto;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	letter-spacing: 0.02em;
 	color: color-mix(in srgb, var(--zag-fg) 55%, transparent);
 }
 
 .zag-datepicker__value.is-selected {
-	color: var(--zag-fg);
+	color: color-mix(in srgb, var(--zag-fg) 90%, transparent);
 }
 
 .zag-datepicker__icon {
 	display: inline-flex;
 	flex-shrink: 0;
-	opacity: 0.7;
+	color: color-mix(in srgb, var(--zag-fg) 80%, transparent);
+	transition: color 0.12s ease;
 }
 
-/**
- * Same trap as the select: the positioner stays mounted while closed so the
- * close transition can play, leaving an invisible absolutely positioned box
- * over whatever follows. Without this it silently swallows clicks beneath it.
- */
+.zag-datepicker__trigger:hover .zag-datepicker__icon {
+	color: var(--zag-accent);
+}
+
+/* Same trap as the select — see the note above .zag-select__positioner. */
 .zag-datepicker__positioner {
 	pointer-events: none;
+	z-index: 1;
+}
+
+.zag-datepicker[data-open='true'] .zag-datepicker__positioner {
+	z-index: 1000;
 }
 
 .zag-datepicker__content {
-	padding: 14px;
+	width: max-content;
+	padding: var(--zag-content-padding);
 	background: var(--zag-surface);
-	border-radius: 12px;
-	box-shadow:
-		0 1px 2px rgba(11, 31, 59, 0.06),
-		0 12px 32px rgba(11, 31, 59, 0.12);
+	border-radius: var(--zag-content-radius);
+	box-shadow: var(--zag-popover-shadow);
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
 	transform-origin: top center;
 	opacity: 0;
 	transform: translateY(-6px) scale(0.98);
@@ -374,6 +406,11 @@
 		opacity 0.16s ease,
 		transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
 		visibility 0s linear 0.2s;
+}
+
+.zag-datepicker__positioner[data-placement^='top'] .zag-datepicker__content {
+	transform-origin: bottom center;
+	transform: translateY(6px) scale(0.98);
 }
 
 .zag-datepicker__content[data-state='open'] {
@@ -392,130 +429,176 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: 8px;
-	margin-bottom: 10px;
-}
-
-.zag-datepicker__nav,
-.zag-datepicker__title {
-	appearance: none;
-	border: 0;
-	background: transparent;
-	font: inherit;
-	color: var(--zag-fg);
-	cursor: pointer;
-	border-radius: 6px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	transition: background 0.12s ease;
 }
 
 .zag-datepicker__nav {
-	width: 32px;
-	height: 32px;
+	appearance: none;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	width: var(--zag-nav-size);
+	height: var(--zag-nav-size);
 	flex-shrink: 0;
+	border-radius: 9999px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--zag-fg);
+	transition: background 0.12s ease;
 }
 
-.zag-datepicker__title {
-	flex: 1;
-	height: 32px;
-	font-weight: 500;
-}
-
-.zag-datepicker__nav:hover,
-.zag-datepicker__title:hover {
+.zag-datepicker__nav:hover {
 	background: var(--zag-field);
 }
 
 .zag-datepicker__nav[disabled],
 .zag-datepicker__nav[data-disabled] {
-	opacity: 0.35;
-	cursor: not-allowed;
+	opacity: 0.3;
+	cursor: default;
+	background: transparent;
+}
+
+.zag-datepicker__title {
+	appearance: none;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	font: inherit;
+	letter-spacing: 0.02em;
+	color: var(--zag-fg);
+	padding: 6px 12px;
+	border-radius: var(--zag-field-radius);
+	transition: background 0.12s ease;
+}
+
+.zag-datepicker__title:hover {
+	background: var(--zag-field);
 }
 
 .zag-datepicker__table {
 	border-collapse: collapse;
-	width: 100%;
+}
+
+.zag-datepicker__table td {
+	padding: 1px;
+	text-align: center;
+}
+
+.zag-datepicker__table--grid td {
+	padding: 3px;
 }
 
 .zag-datepicker__weekday {
-	font-size: 11px;
-	font-weight: 600;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
+	width: var(--zag-day-size);
+	height: 30px;
+	font-weight: 400;
+	font-size: 12px;
+	letter-spacing: 0.02em;
 	color: color-mix(in srgb, var(--zag-fg) 45%, transparent);
-	padding-bottom: 6px;
+	text-align: center;
 }
 
-.zag-datepicker__day,
-.zag-datepicker__cell {
+.zag-datepicker__day {
+	width: var(--zag-day-size);
+	height: var(--zag-day-size);
+	margin: 0 auto;
+	border-radius: var(--zag-day-radius);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 36px;
-	height: 36px;
-	margin: 1px auto;
-	border-radius: 8px;
+	font-weight: 300;
+	font-size: 15px;
+	letter-spacing: 0.02em;
+	color: color-mix(in srgb, var(--zag-fg) 85%, transparent);
 	cursor: pointer;
 	user-select: none;
-	font-variant-numeric: tabular-nums;
-	color: color-mix(in srgb, var(--zag-fg) 85%, transparent);
 	transition:
 		background 0.12s ease,
-		color 0.12s ease;
-}
-
-.zag-datepicker__cell {
-	width: auto;
-	padding: 0 12px;
-}
-
-.zag-datepicker__day:hover,
-.zag-datepicker__cell:hover,
-.zag-datepicker__day[data-highlighted],
-.zag-datepicker__cell[data-highlighted] {
-	background: var(--zag-field);
+		color 0.12s ease,
+		box-shadow 0.12s ease;
 }
 
 .zag-datepicker__day[data-outside-range] {
-	opacity: 0.35;
+	color: color-mix(in srgb, var(--zag-fg) 28%, transparent);
 }
 
 .zag-datepicker__day[data-today] {
-	box-shadow: inset 0 0 0 1px var(--zag-border-hover);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--zag-fg) 18%, transparent);
 }
 
-.zag-datepicker__day[data-selected],
-.zag-datepicker__cell[data-selected] {
+.zag-datepicker__day[data-highlighted]:not([data-disabled]):not([data-selected]) {
+	background: var(--zag-field);
+}
+
+/**
+ * Keyboard focus. Without this, arrow-key navigation through the grid gives no
+ * visible indication of position at all.
+ */
+.zag-datepicker__day[data-focus]:not([data-disabled]):not([data-selected]),
+.zag-datepicker__cell[data-focus]:not([data-selected]) {
+	box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--zag-accent) 50%, transparent);
+}
+
+.zag-datepicker__day[data-selected] {
 	background: var(--zag-accent);
 	color: #fff;
-	font-weight: 500;
+	font-weight: 400;
+	box-shadow: none;
 }
 
-/* Range middle: tinted rather than solid, so the endpoints stay legible. */
+.zag-datepicker__day[data-disabled],
+.zag-datepicker__day[data-unavailable] {
+	color: color-mix(in srgb, var(--zag-fg) 22%, transparent);
+	cursor: default;
+}
+
+/* Range band. Not in the ref, which is single-date only. */
 .zag-datepicker__day[data-in-range] {
 	background: color-mix(in srgb, var(--zag-accent) 16%, transparent);
 	border-radius: 0;
 	color: var(--zag-fg);
 }
 
-.zag-datepicker__day[data-range-start] {
-	border-radius: 8px 0 0 8px;
+.zag-datepicker__cell {
+	min-width: 88px;
+	height: 44px;
+	padding: 0 14px;
+	border-radius: var(--zag-cell-radius);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 300;
+	font-size: 15px;
+	color: color-mix(in srgb, var(--zag-fg) 85%, transparent);
+	cursor: pointer;
+	user-select: none;
+	transition:
+		background 0.12s ease,
+		color 0.12s ease,
+		box-shadow 0.12s ease;
 }
 
-.zag-datepicker__day[data-range-end] {
-	border-radius: 0 8px 8px 0;
+.zag-datepicker__cell[data-highlighted]:not([data-selected]) {
+	background: var(--zag-field);
 }
 
-.zag-datepicker__day[data-disabled],
-.zag-datepicker__day[data-unavailable],
+.zag-datepicker__cell[data-selected] {
+	background: var(--zag-accent);
+	color: #fff;
+	font-weight: 400;
+}
+
 .zag-datepicker__cell[data-disabled] {
-	opacity: 0.3;
-	cursor: not-allowed;
-	background: transparent;
+	color: color-mix(in srgb, var(--zag-fg) 22%, transparent);
+	cursor: default;
 }
 
 @media (prefers-reduced-motion: reduce) {
+	.zag-select__menu,
+	.zag-select__trigger,
+	.zag-select__indicator,
+	.zag-select__option,
+	.zag-select__check,
 	.zag-datepicker__content,
 	.zag-datepicker__trigger,
 	.zag-datepicker__day,

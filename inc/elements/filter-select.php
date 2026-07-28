@@ -164,6 +164,19 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			'label'   => esc_html__( 'Match trigger width', 'zag' ),
 			'default' => true,
 		];
+
+		$this->controls = array_merge(
+			$this->controls,
+			shared_style_controls(),
+			select_style_controls()
+		);
+	}
+
+	public function set_control_groups() {
+		$this->control_groups['zagStyle'] = [
+			'title' => esc_html__( 'Zag', 'zag' ),
+			'tab'   => 'style',
+		];
 	}
 
 	/**

@@ -191,6 +191,19 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			],
 			'placeholder' => esc_html__( 'Below', 'zag' ),
 		];
+
+		$this->controls = array_merge(
+			$this->controls,
+			shared_style_controls(),
+			datepicker_style_controls()
+		);
+	}
+
+	public function set_control_groups() {
+		$this->control_groups['zagStyle'] = [
+			'title' => esc_html__( 'Zag', 'zag' ),
+			'tab'   => 'style',
+		];
 	}
 
 	/**

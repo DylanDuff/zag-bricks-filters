@@ -53,6 +53,7 @@ function element_map() {
 	];
 }
 
+require_once ZAG_PATH . 'inc/style-controls.php';
 require_once ZAG_PATH . 'inc/query-filters-bridge.php';
 
 new Query_Filters_Bridge();
