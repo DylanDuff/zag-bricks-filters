@@ -28,6 +28,23 @@ element each Zag element stands in for. Note the mapping is also
 single select impersonates `filter-select` (scalar values). See
 `Element_Zag_Filter_Select::impersonates()`.
 
+**`zag-smart-search` and `zag-active-filters` are the exceptions and need none of
+this.** Neither holds a filter value — one drives the *other* elements' filters,
+the other displays them — so both are deliberately absent from `element_map()`,
+which is what keeps them out of every hook in `Query_Filters_Bridge`. Both extend
+`\Bricks\Element`, not `\Bricks\Filter_Element`. Not being filters also means
+Bricks never DOM-replaces them after a response, so the search input keeps focus
+and caret while results update. See `docs/smart-search.md` and
+`docs/active-filters.md`.
+
+Both are **client-rendered on purpose**. Bricks' own active filters element is
+the cautionary example: it gates one-chip-per-value on
+`$instance_name === 'filter-checkbox'` (`filter-active-filters.php:280`) and date
+formatting on `'filter-datepicker'` (`:406`), and reads a value already collapsed
+by `sanitize_filter_value()` — so a Zag multi-select renders as a single, usually
+wrong, chip. Reading `filterInstances[…].currentValue` in JS avoids all three,
+because that value is never sanitised and an array stays an array.
+
 ### 1. Builder controls — name spoofing
 
 `Filter_Element::get_filter_controls()` (`filter-base.php:1073`) bails unless
@@ -96,11 +113,35 @@ committed** so the plugin works from a plain checkout.
 | `bricks.js` | Everything touching Bricks' filter runtime — registry, lifecycle, value plumbing |
 | `select.js` | Select machine, trigger and listbox |
 | `datepicker.js` | Date picker machine, calendar views, flatpickr shim |
+| `search.js` | Smart search: parses a sentence and drives the filters above |
+| `active-filters.js` | Chips for whatever those filters currently hold |
 
-Both elements share one lifecycle and differ only in how a value is read from
-and written to their machine, which each supplies as an **adapter**
-(`getValue` / `setValue` / `captureState` / `restoreState`). Add a third element
-by writing a mount function and an adapter; don't duplicate the lifecycle.
+Note `src/bricks.js` is **ours** — the adapter layer named for what it talks to.
+Bricks' own filter runtime is `themes/bricks/assets/js/filters.js`, and nothing
+in this plugin modifies the theme.
+
+Both filter elements share one lifecycle and differ only in how a value is read
+from and written to their machine, which each supplies as an **adapter**
+(`getValue` / `setValue` / `describe` / `captureState` / `restoreState`). Add a
+third element by writing a mount function and an adapter; don't duplicate the
+lifecycle.
+
+`describe()` is what keeps element-specific labelling out of the chips element:
+a select returns one descriptor per selected value, the date picker returns one
+for the whole range. `icon()` is the same idea for chrome — it hands back the
+element's leading icon node so a chip can clone the glyph.
+
+`search.js` and `active-filters.js` are not filters and have no adapters. They
+consume the others through three exports:
+
+- `filterTargets(queryId)` — every live Zag filter, read from `mounted`. Call it
+  fresh each time; targets are new objects after every response. `options` is
+  empty for the date picker, so `search.js` filters those out and
+  `active-filters.js` keeps them.
+- `driveFilters(plan)` — set several filters at once, **one request per query**.
+  The write-then-repaint order is load-bearing; the reason is commented there.
+- `applyFilters(changes)` — the same, without the repaint. What `applyFilter`
+  wraps for the single-filter case.
 
 The date picker exposes a flatpickr-shaped object on
 `filterInstance.datepicker`, because `resetFilterValue` (`filters.js:256`) calls
@@ -129,6 +170,27 @@ Key facts about Bricks' filter JS (`assets/js/filters.js`):
 The server-rendered `<select>` inside each element is the progressive-enhancement
 baseline. JS hides it on mount and mirrors selections into it, so the filter
 still works without the bundle.
+
+**Pre-mount state.** An inline script at `wp_head` priority 1 puts `zag-js` on
+`<html>` before first paint; `register()` then sets `data-zag-ready` on each root
+as it mounts. Between the two, the stylesheet holds the native control at
+`visibility: hidden` with the field's box geometry — invisible, but still
+occupying the space the mounted control will take.
+
+`visibility`, not `display: none`: hiding it outright collapses the box and makes
+everything below it jump when the real control arrives, which is the whole point.
+Painting nothing also avoids having to match the field's appearance, and takes
+the multi-select's list-box **scrollbar** with it — that cannot be styled away,
+so any approach that leaves the element painted will show it. `height` rather
+than `min-height`, because a `<select multiple>` otherwise reserves several rows.
+
+No fade: the boxes are identical, and Bricks replaces our filter nodes on every
+response, so an entry animation would re-run on every filter click.
+
+The script is inline and unconditional because it must beat first paint, and
+Bricks renders elements during the body — at `wp_head` there is no way to know
+whether the page has one. Without JS the class never appears and the native
+controls render untouched.
 
 ### 4. Multi-select values — recovery from the request
 
@@ -161,6 +223,28 @@ The consequence is that our elements now go through Bricks' DOM replacement
 `zag-filters.js` tears down orphaned instances on each response and carries open
 and highlighted state across via `pendingRestore` — without that, a multi-select
 menu (which stays open across a selection) slams shut mid-interaction.
+
+### Gotcha: reading elements must use `onFiltersSettled`, not the raw event
+
+`startLifecycle()` adds its `bricks/ajax/query_result/displayed` listener **when
+it is called**, at the bottom of `zag-filters.js` — not when `bricks.js`
+evaluates. Every imported module has therefore already evaluated, so a
+module-level listener anywhere in `src/` lands **ahead** of the one that runs
+`reap()` and `resync()`.
+
+For an element that reads the filters rather than being one, that means
+`filterTargets()` returns instances whose roots Bricks has already discarded:
+stale machines, stale `filterInstance` objects, stale values. The render paints
+the *previous* state, so the UI sits exactly one interaction behind.
+
+The tell is nasty, because the immediate `zag/filter/change` render is correct
+and the stale one overwrites it a moment later: the chip vanishes and returns,
+which reads as "clearing doesn't work" rather than "renders twice". It only
+appears to fix itself on the next interaction, when the stale render finally
+catches up to the change before it.
+
+Use `onFiltersSettled(callback)` from `bricks.js`. It runs after reap, resync and
+remount, which is the only point at which `mounted` describes the live page.
 
 ### Gotcha: never style :focus on a focusable element
 
@@ -218,10 +302,25 @@ Pin to an **explicit colour, never `currentColor`**: the blanket rule may set
 `color`, which `currentColor` would happily inherit, leaving a guard that looks
 right and does nothing.
 
-The date picker's SVGs are unguarded on purpose. It has no icon control, so
-nothing emits the rule there, and its nav and calendar icons change colour on
-hover — pinning them would break that. Guard them only if the collision actually
-appears.
+**The root cause is a missing `css` key, not the control itself.**
+`Assets::generate_css_from_controls()` (`assets.php:1662`) gives an `icon`
+control that declares no `css` of its own a default rule scoped to `svg` —
+element-wide. Declaring a selector suppresses that default entirely:
+
+```php
+'css' => [ [ 'selector' => '.zag-datepicker__icon > *, .zag-datepicker__iconbtn > *' ] ],
+```
+
+The date picker's `zagIcon` does exactly that, which is why it can offer an icon
+control without recolouring its nav arrows — whose hover colour change would
+otherwise be pinned flat. Target the glyph (`> *`, covering `<svg>`, `<img>` and
+an icon-font `<i>`) rather than the slot, so the control's width, height and
+colour land where Bricks' own default would have put them.
+
+The select still uses the guard table above instead, because it predates this
+finding. Giving `Element_Zag_Filter_Select::$controls['zagIcon']` a scoped `css`
+key would make all three guards redundant — worth doing, but it is a behaviour
+change to shipped elements, so it hasn't been done blind.
 
 ### Gotcha: the positioner must never take pointer events
 
@@ -250,9 +349,19 @@ If anything below a Zag element ever stops responding to clicks, check
   exposed** — offering it would let someone change the comparison semantics
   without changing what they can pick. Re-add the control together with a time
   input, never on its own.
-- **The bundle is one file, ~171kb minified.** Pages using only a select still
+- **The bundle is one file, ~179kb minified.** Pages using only a select still
   download the date picker. Splitting per element is straightforward if that
   matters.
+- **The chips element covers Zag filters only.** Labels come from our elements'
+  own option config; a native Bricks filter on the same page would need its
+  label read out of the DOM, per filter type.
+- **Smart search can't drive a date picker.** It matches words against option
+  labels, and a calendar has none. Natural-language dates ("next week") would
+  need a parser and a different adapter path; the reconciler already skips date
+  pickers so they are never wrongly cleared.
+- **Smart search vocabulary is per element instance.** Two search elements on
+  two pages don't share a synonym table. If one table ever needs to serve a
+  whole site, move it behind a filter hook rather than duplicating rows.
 
 ## Testing
 
@@ -263,6 +372,13 @@ taxonomy query var building.
 The `Filter_Element` stub mirrors the name-gated branches of the real
 `filter-base.php`. **A green run against a stale stub proves nothing** — update
 the stub when Bricks changes which controls sit behind which name.
+
+**The frontend has no tests at all.** The smart search's matching, vocabulary
+and reconciliation are pure functions and would run under `node --test` with no
+new dependencies, but they currently share a module with the DOM wiring, which
+touches `document` at evaluation. Splitting `src/search.js` into a pure
+`search-parse.js` plus a DOM shell is the prerequisite — see
+`docs/smart-search.md` for the cases worth covering.
 
 ## Conventions
 

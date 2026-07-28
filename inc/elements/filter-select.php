@@ -410,12 +410,31 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 				continue;
 			}
 
-			$options[] = [
+			$label = wp_strip_all_tags( $this->get_option_text_with_count( $option ) );
+			$text  = wp_strip_all_tags( (string) $option['text'] );
+
+			$item = [
 				'value'    => (string) $option['value'],
-				'label'    => wp_strip_all_tags( $this->get_option_text_with_count( $option ) ),
+				'label'    => $label,
 				'disabled' => ! empty( $option['disabled'] ),
 				'depth'    => $option['depth'] ?? 0,
 			];
+
+			/**
+			 * Count-free text for keyword matching.
+			 *
+			 * The visible label may carry a result count ("Penrith (4)"), which a
+			 * controller element must not try to match a typed word against. Only
+			 * emitted when it actually differs, so pages without counts keep the
+			 * payload they had.
+			 *
+			 * @see src/search.js
+			 */
+			if ( $text !== '' && $text !== $label ) {
+				$item['match'] = $text;
+			}
+
+			$options[] = $item;
 		}
 
 		$config = [

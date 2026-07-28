@@ -306,6 +306,190 @@ function select_style_controls() {
 }
 
 /**
+ * Smart search specific metrics.
+ *
+ * The search has no popover, so it takes only the palette and field half of the
+ * shared set — see Element_Zag_Smart_Search::UNUSED_STYLE_CONTROLS.
+ */
+function search_style_controls() {
+	return [
+		'zagIconSep' => [
+			'label'    => esc_html__( 'Icon', 'zag' ),
+			'type'     => 'separator',
+			'required' => [ 'zagNoIcon', '=', '' ],
+		],
+
+		'zagIconSize' => css_var_control(
+			esc_html__( 'Size', 'zag' ),
+			'number',
+			'--zag-search-icon-size',
+			'18px',
+			[
+				'units'    => true,
+				'required' => [ 'zagNoIcon', '=', '' ],
+			]
+		),
+
+		/**
+		 * Separate from the text colour.
+		 *
+		 * The ref runs the magnifier at the muted tone rather than the field's
+		 * text colour, so the two have to be settable independently.
+		 */
+		'zagIconColor' => css_var_control(
+			esc_html__( 'Colour', 'zag' ),
+			'color',
+			'--zag-search-icon',
+			[ 'rgb' => 'rgba(11, 31, 59, 0.45)' ],
+			[ 'required' => [ 'zagNoIcon', '=', '' ] ]
+		),
+
+		'zagFieldGap' => css_var_control(
+			esc_html__( 'Gap', 'zag' ),
+			'number',
+			'--zag-search-gap',
+			'10px',
+			[
+				'units'       => true,
+				'description' => esc_html__( 'Between the icon and the text.', 'zag' ),
+				'required'    => [ 'zagNoIcon', '=', '' ],
+			]
+		),
+
+		'zagHintSep' => [
+			'label'    => esc_html__( 'Hint', 'zag' ),
+			'type'     => 'separator',
+			'required' => [ 'zagHint', '!=', '' ],
+		],
+
+		'zagHintColor' => css_var_control(
+			esc_html__( 'Colour', 'zag' ),
+			'color',
+			'--zag-search-hint',
+			[ 'rgb' => 'rgba(11, 31, 59, 0.5)' ],
+			[ 'required' => [ 'zagHint', '!=', '' ] ]
+		),
+
+		'zagHintStrong' => css_var_control(
+			esc_html__( 'Matched terms', 'zag' ),
+			'color',
+			'--zag-search-hint-strong',
+			[ 'hex' => '#0b1f3a' ],
+			[
+				'description' => esc_html__( 'The filter names read back inside the hint.', 'zag' ),
+				'required'    => [ 'zagHint', '!=', '' ],
+			]
+		),
+	];
+}
+
+/**
+ * Active filter chip metrics.
+ *
+ * The chip palette is its own set rather than reusing the field colours: the
+ * ref draws chips as an accent tint with an accent-dark text, which is not the
+ * field's near-white box, and reusing one for the other makes both unsettable.
+ */
+function active_filters_style_controls() {
+	return [
+		'zagChipSep' => [
+			'label' => esc_html__( 'Chip', 'zag' ),
+			'type'  => 'separator',
+		],
+
+		'zagChipBg' => css_var_control(
+			esc_html__( 'Background', 'zag' ),
+			'color',
+			'--zag-chip-bg',
+			[ 'rgb' => 'rgba(94, 180, 225, 0.14)' ]
+		),
+
+		'zagChipFg' => css_var_control(
+			esc_html__( 'Text', 'zag' ),
+			'color',
+			'--zag-chip-fg',
+			[ 'hex' => '#0b1f3a' ]
+		),
+
+		'zagChipBorder' => css_var_control(
+			esc_html__( 'Border', 'zag' ),
+			'color',
+			'--zag-chip-border',
+			[ 'rgb' => 'rgba(94, 180, 225, 0.35)' ]
+		),
+
+		'zagChipRadius' => css_var_control(
+			esc_html__( 'Radius', 'zag' ),
+			'number',
+			'--zag-chip-radius',
+			'9999px',
+			[
+				'units'       => true,
+				'description' => esc_html__( 'Defaults to a pill.', 'zag' ),
+			]
+		),
+
+		'zagChipGap' => css_var_control(
+			esc_html__( 'Gap', 'zag' ),
+			'number',
+			'--zag-chip-gap',
+			'8px',
+			[
+				'units'       => true,
+				'description' => esc_html__( 'Between chips, and around the label.', 'zag' ),
+			]
+		),
+
+		/**
+		 * Sized here rather than inherited from the filter's own icon control.
+		 *
+		 * The select draws its icon as a 40px badge; only the bare glyph is
+		 * cloned into a chip, so it needs a size of its own at chip scale.
+		 */
+		'zagChipIconSize' => css_var_control(
+			esc_html__( 'Icon size', 'zag' ),
+			'number',
+			'--zag-chip-icon-size',
+			'14px',
+			[
+				'units'    => true,
+				'required' => [ 'zagHideIcons', '=', '' ],
+			]
+		),
+
+		'zagChipRemoveSep' => [
+			'label' => esc_html__( 'Remove button', 'zag' ),
+			'type'  => 'separator',
+		],
+
+		'zagChipRemoveBg' => css_var_control(
+			esc_html__( 'Background', 'zag' ),
+			'color',
+			'--zag-chip-remove-bg',
+			[ 'rgb' => 'rgba(94, 180, 225, 0.3)' ]
+		),
+
+		/**
+		 * The hover pair is a filled accent circle with a light glyph, so both
+		 * halves have to move together — hence two controls, not one.
+		 */
+		'zagChipRemoveHoverBg' => css_var_control(
+			esc_html__( 'Background', 'zag' ) . ': ' . esc_html__( 'Hover', 'zag' ),
+			'color',
+			'--zag-chip-remove-hover-bg',
+			[ 'hex' => '#5eb4e1' ]
+		),
+
+		'zagChipRemoveHoverFg' => css_var_control(
+			esc_html__( 'Glyph', 'zag' ) . ': ' . esc_html__( 'Hover', 'zag' ),
+			'color',
+			'--zag-chip-remove-hover-fg',
+			[ 'hex' => '#ffffff' ]
+		),
+	];
+}
+
+/**
  * Date picker specific metrics.
  */
 function datepicker_style_controls() {

@@ -1,7 +1,7 @@
 import { VanillaMachine, normalizeProps, spreadProps } from '@zag-js/vanilla'
 import * as select from '@zag-js/select'
 
-import { applyFilter, emitChange, getFilterInstance, mounted, register, seedFilterInstance, toArray, updateCaption } from './bricks.js'
+import { applyFilter, emitChange, getFilterInstance, insertControl, mounted, register, seedFilterInstance, toArray, updateCaption } from './bricks.js'
 
 /**
  * Zag select UI over a Bricks query filter.
@@ -91,6 +91,34 @@ export function mountSelect(root) {
 		adapter: {
 			getValue: () => api().value || [],
 			setValue: (value) => api().setValue(toArray(value)),
+			/**
+			 * One descriptor per selected value, for the active filters chips.
+			 *
+			 * Labelled with the count-free text, so a chip never reads
+			 * "Penrith (4)". A value with no matching option still gets a chip
+			 * showing the raw value — better a bare chip that can be removed
+			 * than a filter the visitor can see working but not clear.
+			 */
+			/**
+			 * The element's own leading icon, for anything drawing chips.
+			 *
+			 * Live node, not a clone — buildParts() relocated it into the
+			 * trigger, so it is still inside the root. Callers clone what they
+			 * need; nothing may move it again.
+			 */
+			icon: () => root.querySelector('[data-zag-icon]'),
+			describe: () => {
+				const byValue = new Map((config.items || []).map((item) => [String(item.value), item]))
+
+				return (api().value || []).map((value) => {
+					const item = byValue.get(String(value))
+
+					return {
+						value: String(value),
+						label: item ? item.match || item.label : String(value)
+					}
+				})
+			},
 			captureState: () => ({ open: api().open, highlightedValue: api().highlightedValue }),
 			restoreState: (state) => {
 				if (!state.open) {
@@ -187,7 +215,7 @@ function buildParts(root, config) {
 	})
 
 	positioner.append(content)
-	root.append(control, positioner)
+	insertControl(root, control, positioner)
 
 	return { label, control, trigger, value, positioner, content, items }
 }

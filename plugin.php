@@ -44,6 +44,11 @@ function version() {
  * dynamic_update_elements). Custom names are invisible to all three, so every
  * integration point needs to know which native element to stand in for.
  *
+ * zag-smart-search and zag-active-filters are deliberately absent: they hold no
+ * filter value, so they have nothing to index, no query vars to build and no
+ * counts to refresh. Every hook in Query_Filters_Bridge keys off this map,
+ * which is exactly what keeps them out of all of them.
+ *
  * @see Query_Filters_Bridge
  */
 function element_map() {
@@ -85,6 +90,21 @@ add_action(
 			'zag-filter-datepicker',
 			__NAMESPACE__ . '\Element_Zag_Filter_Datepicker'
 		);
+
+		// These two extend \Bricks\Element, not \Bricks\Filter_Element, so they
+		// have no ordering requirement of their own — registered here to keep
+		// every element in one place.
+		\Bricks\Elements::register_element(
+			ZAG_PATH . 'inc/elements/smart-search.php',
+			'zag-smart-search',
+			__NAMESPACE__ . '\Element_Zag_Smart_Search'
+		);
+
+		\Bricks\Elements::register_element(
+			ZAG_PATH . 'inc/elements/active-filters.php',
+			'zag-active-filters',
+			__NAMESPACE__ . '\Element_Zag_Active_Filters'
+		);
 	},
 	20
 );
@@ -102,6 +122,33 @@ function asset_version( $relative_path ) {
 
 	return $mtime ? (string) $mtime : version();
 }
+
+/**
+ * Mark the document as JS-capable before the body paints.
+ *
+ * The stylesheet uses `.zag-js` to dress each element's native control as a
+ * skeleton of the mounted field, which is what stops the flash of an unstyled
+ * <select> and the layout jump when the Zag UI replaces it. It has to land on
+ * <html> before first paint, so it is inline in the head rather than in the
+ * bundle, which loads in the footer.
+ *
+ * Printed unconditionally: Bricks renders elements during the body, so at
+ * wp_head there is no reliable way to know whether this page has one. The cost
+ * is a single attribute write.
+ *
+ * Deliberately not wrapped in a feature check — without JS the class is never
+ * added and every native control stays exactly as rendered.
+ */
+add_action(
+	'wp_head',
+	function () {
+		wp_print_inline_script_tag(
+			"document.documentElement.classList.add('zag-js')",
+			[ 'id' => 'zag-js-flag' ]
+		);
+	},
+	1
+);
 
 add_action(
 	'wp_enqueue_scripts',

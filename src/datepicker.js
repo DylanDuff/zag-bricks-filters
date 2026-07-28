@@ -2,7 +2,7 @@ import { VanillaMachine, normalizeProps, spreadProps } from '@zag-js/vanilla'
 import * as datePicker from '@zag-js/date-picker'
 import { DateFormatter, getLocalTimeZone, parseDate } from '@internationalized/date'
 
-import { applyFilter, emitChange, getFilterInstance, mounted, register, seedFilterInstance, updateCaption } from './bricks.js'
+import { applyFilter, emitChange, getFilterInstance, insertControl, mounted, register, seedFilterInstance, updateCaption } from './bricks.js'
 
 /**
  * Zag date picker UI over a Bricks query filter.
@@ -207,6 +207,37 @@ export function mountDatepicker(root) {
 				return value.length ? [value.map(ISO).join(',')] : []
 			},
 			setValue: (value) => api().setValue(parseValue(value)),
+			/**
+			 * The custom icon, if one replaced the calendar glyph.
+			 *
+			 * Only ever matches when zagIcon is set: fillIcon() marks the host it
+			 * relocated into, and leaves the default calendar unmarked because
+			 * that is chrome rather than something the editor chose.
+			 */
+			icon: () => root.querySelector('[data-zag-icon]'),
+			/**
+			 * One chip for the whole value, not one per date.
+			 *
+			 * A range is a single filter clause — removing half of it would
+			 * leave a state the calendar can't represent — so the chip carries
+			 * the joined value and removing it clears the field. Labelled with
+			 * the same formatter the field itself uses, so the chip and the
+			 * control never disagree.
+			 */
+			describe: () => {
+				const values = api().value || []
+
+				if (!values.length) {
+					return []
+				}
+
+				return [
+					{
+						value: values.map(ISO).join(','),
+						label: formatDates(values, config.locale || 'en-GB', config.dateStyle || 'medium')
+					}
+				]
+			},
 			captureState: () => ({ open: api().open }),
 			restoreState: (state) => {
 				if (state.open) {
@@ -247,6 +278,32 @@ function buildParts(root, config) {
 	const CALENDAR_SVG =
 		'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'
 
+	/**
+	 * A custom icon replaces the calendar glyph; without one, the default stands.
+	 *
+	 * The server renders it into a hidden carrier, so its children are *moved*
+	 * rather than serialised — Bricks' icon markup and classes survive and no
+	 * arbitrary HTML goes through innerHTML. Snapshotted with Array.from because
+	 * appending moves nodes out of the live childNodes list as it iterates.
+	 */
+	const provided = root.querySelector('[data-zag-icon]')
+	const glyphs = provided ? Array.from(provided.childNodes) : []
+
+	const fillIcon = (host) => {
+		if (glyphs.length) {
+			host.append(...glyphs)
+
+			// Same contract as the select: marks a user-set icon so the active
+			// filters element can clone it. The default calendar is chrome and
+			// deliberately stays unmarked.
+			host.setAttribute('data-zag-icon', '')
+		} else {
+			host.innerHTML = CALENDAR_SVG
+		}
+
+		provided?.remove()
+	}
+
 	const trigger = document.createElement('button')
 	trigger.type = 'button'
 
@@ -266,7 +323,7 @@ function buildParts(root, config) {
 
 		trigger.className = 'zag-datepicker__iconbtn'
 		trigger.setAttribute('aria-label', config.placeholder || 'Open calendar')
-		trigger.innerHTML = CALENDAR_SVG
+		fillIcon(trigger)
 
 		control.append(input, trigger)
 	} else {
@@ -278,7 +335,7 @@ function buildParts(root, config) {
 
 		const icon = document.createElement('span')
 		icon.className = 'zag-datepicker__icon'
-		icon.innerHTML = CALENDAR_SVG
+		fillIcon(icon)
 
 		trigger.append(value, icon)
 		control.append(trigger)
@@ -291,7 +348,7 @@ function buildParts(root, config) {
 	content.className = 'zag-datepicker__content'
 
 	positioner.append(content)
-	root.append(control, positioner)
+	insertControl(root, control, positioner)
 
 	return { label, control, trigger, value, input, positioner, content }
 }

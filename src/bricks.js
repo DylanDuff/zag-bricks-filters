@@ -56,8 +56,36 @@ export function isSameValue(a, b) {
 	return left.length === right.length && left.every((value) => right.includes(value))
 }
 
+/**
+ * Put a freshly built control into the element, keeping the caption last.
+ *
+ * The caption is rendered server-side and is therefore already the final child.
+ * Appending the control would leave the status line reading *above* the field it
+ * describes, so insert ahead of it when there is one.
+ */
+export function insertControl(root, control, positioner) {
+	const caption = root.querySelector('[data-zag-caption]')
+
+	if (caption) {
+		caption.before(control, positioner)
+
+		return
+	}
+
+	root.append(control, positioner)
+}
+
 export function register(instance) {
 	mounted.set(instance.root, instance)
+
+	/**
+	 * Ends the pre-mount state.
+	 *
+	 * Until this lands the stylesheet keeps the native control invisible but
+	 * holding the field's box, so the real one arrives in the same footprint and
+	 * nothing shifts.
+	 */
+	instance.root.setAttribute('data-zag-ready', '')
 
 	const filterId = instance.filterInstance?.filterId
 
@@ -88,35 +116,118 @@ export function seedFilterInstance(filterInstance, value, emptyValue) {
 }
 
 /**
- * Push a new value into Bricks and run the filter.
+ * Push new values into Bricks and run the affected queries.
+ *
+ * `changes` is a list of { filter, value }. Every value is written first, then
+ * one request goes out per distinct query — bricksGetQueryResult reads each
+ * filter's currentValue off the selectedFilters registry at fetch time
+ * (filters.js:440), not from arguments, so a batch of changes to one query
+ * costs exactly one round trip. The search element depends on that: a single
+ * sentence can set several filters at once.
  *
  * Guarded against the value Bricks already holds: resync() drives machines
  * programmatically, which fires their change callbacks and lands back here.
  * Comparing rather than using a flag keeps this correct regardless of when
  * those callbacks fire.
  */
+export function applyFilters(changes) {
+	const queryIds = new Set()
+
+	changes.forEach(({ filter, value }) => {
+		if (!filter || isSameValue(filter.currentValue, value)) {
+			return
+		}
+
+		filter.currentValue = value
+
+		// 'click' means a submit button applies the filter, not the input itself.
+		if ((filter.filterApplyOn || 'change') !== 'change') {
+			return
+		}
+
+		const queryId = filter.targetQueryId
+
+		if (!window.bricksData?.queryLoopInstances?.[queryId]) {
+			return
+		}
+
+		window.bricksUtils.updateSelectedFilters(queryId, filter)
+		queryIds.add(queryId)
+	})
+
+	queryIds.forEach((queryId) => window.bricksUtils.fetchFilterResults(queryId))
+}
+
+/** Single-filter case: what an element does when its own value changes. */
 export function applyFilter(instance, value) {
-	const filter = instance.filterInstance
+	applyFilters([{ filter: instance.filterInstance, value }])
+}
 
-	if (!filter || isSameValue(filter.currentValue, value)) {
-		return
-	}
+/**
+ * Every live Zag filter that something else can read or write.
+ *
+ * This is what lets a controller element be dropped onto a page with no
+ * configuration and find the filters already there: `mounted` is rebuilt as
+ * elements mount, and reap() prunes it when Bricks swaps a node out, so a fresh
+ * call always reflects the current DOM. Never cache the result across a request.
+ *
+ * `options` is empty for filters that offer none — the date picker. Callers that
+ * need options must say so: search.js matches words against them and filters
+ * these out, while active-filters.js only ever describes a current value and
+ * keeps them.
+ *
+ * @param {string} [queryId] Restrict to filters targeting one query.
+ */
+export function filterTargets(queryId) {
+	const targets = []
 
-	filter.currentValue = value
+	mounted.forEach((instance) => {
+		const filter = instance.filterInstance
 
-	// 'click' means a submit button applies the filter, not the input itself.
-	if ((filter.filterApplyOn || 'change') !== 'change') {
-		return
-	}
+		if (!filter?.targetQueryId) {
+			return
+		}
 
-	const queryId = filter.targetQueryId
+		if (queryId && filter.targetQueryId !== queryId) {
+			return
+		}
 
-	if (!window.bricksData?.queryLoopInstances?.[queryId]) {
-		return
-	}
+		targets.push({
+			filter,
+			options: Array.isArray(instance.config?.items) ? instance.config.items : [],
+			multiple: !!instance.multiple,
+			/** Shape a list of option values the way this filter's type expects. */
+			shape: (values) => (instance.multiple ? values.map(String) : String(values[0] ?? '')),
+			repaint: (values) => instance.adapter.setValue(values),
+			/** { value, label } per chip for whatever this filter currently holds. */
+			describe: () => instance.adapter.describe?.() || [],
+			/** The element's leading icon node, if it renders one. */
+			icon: () => instance.adapter.icon?.() || null
+		})
+	})
 
-	window.bricksUtils.updateSelectedFilters(queryId, filter)
-	window.bricksUtils.fetchFilterResults(queryId)
+	return targets
+}
+
+/**
+ * Set several filters at once from outside the elements that own them.
+ *
+ * `plan` is a list of { target, values }, where values are option values.
+ */
+export function driveFilters(plan) {
+	applyFilters(plan.map(({ target, values }) => ({ filter: target.filter, value: target.shape(values) })))
+
+	/**
+	 * Repaint after applying, never before.
+	 *
+	 * Driving a machine fires its own onValueChange, which lands back in
+	 * applyFilter — by then currentValue already holds the new value, so the
+	 * isSameValue guard swallows it and no second request goes out. Repainting
+	 * first would invert the problem: applyFilters would see nothing changed and
+	 * skip the fetch entirely, leaving the UI ahead of the results. This is the
+	 * same ordering resync() depends on.
+	 */
+	plan.forEach(({ target, values }) => target.repaint(values))
 }
 
 /**
@@ -157,6 +268,24 @@ export function updateCaption(root, text) {
 	}
 
 	caption.classList.toggle('is-set', filled)
+}
+
+/**
+ * Callbacks for elements that read the filters rather than being one.
+ *
+ * These must run *after* reap() and resync(), and registering a plain
+ * `bricks/ajax/query_result/displayed` listener does not achieve that: the
+ * lifecycle's own listener is added when startLifecycle() is called from
+ * zag-filters.js, which is after every imported module has evaluated. A module
+ * level listener therefore lands ahead of it and sees `mounted` still holding
+ * instances whose roots Bricks has already discarded — stale values, one
+ * interaction behind.
+ */
+const settledCallbacks = []
+
+/** Run `callback` after each response, once the DOM swap is reconciled. */
+export function onFiltersSettled(callback) {
+	settledCallbacks.push(callback)
 }
 
 /** Tear down instances whose element Bricks has swapped out. */
@@ -219,5 +348,8 @@ export function startLifecycle(runFns) {
 		reap()
 		resync()
 		runFns.forEach((run) => run())
+
+		// Only now is `mounted` an accurate picture of the page.
+		settledCallbacks.forEach((callback) => callback())
 	})
 }

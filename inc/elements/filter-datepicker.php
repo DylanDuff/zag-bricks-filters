@@ -231,6 +231,32 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			'required'    => [ 'zagTypeable', '=', '' ],
 		];
 
+		/**
+		 * Replaces the built-in calendar glyph rather than prefixing the field.
+		 *
+		 * The `css` key is not optional here. Assets::generate_css_from_controls()
+		 * gives an icon control with no `css` of its own a default rule scoped to
+		 * `svg` (assets.php:1662) — inside this element that is the calendar
+		 * glyph *and* every nav arrow in the popover, all of which change colour
+		 * on hover. Declaring a selector suppresses that default and keeps the
+		 * control to the icon it names.
+		 *
+		 * Targets the glyph rather than its slot so the control's width, height
+		 * and colour land on the icon itself, which is what Bricks' own default
+		 * does. `> *` covers an <svg>, an <img> and an icon-font <i> alike.
+		 *
+		 * @see CLAUDE.md — "Bricks' icon colour control recolours our chrome"
+		 */
+		$this->controls['zagIcon'] = [
+			'group' => 'zagFunction',
+			'type'  => 'icon',
+			'label' => esc_html__( 'Icon', 'zag' ),
+			'desc'  => esc_html__( 'Replaces the built-in calendar glyph.', 'zag' ),
+			'css'   => [
+				[ 'selector' => '.zag-datepicker__icon > *, .zag-datepicker__iconbtn > *' ],
+			],
+		];
+
 		$this->controls['zagPlacement'] = [
 			'group' => 'zagFunction',
 			'type'        => 'select',
@@ -400,6 +426,21 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			esc_attr( $current_value ),
 			esc_attr( $placeholder )
 		);
+
+		/**
+		 * Carrier for a custom icon.
+		 *
+		 * Rendered here and relocated by datepicker.js into whichever host the
+		 * mode builds, so Bricks' icon markup and classes survive intact and no
+		 * arbitrary HTML is ever assigned through innerHTML. Same approach the
+		 * select uses; hidden because this node is only ever a courier.
+		 */
+		if ( ! empty( $settings['zagIcon'] ) ) {
+			printf(
+				'<span data-zag-icon hidden>%s</span>',
+				self::render_icon( $settings['zagIcon'] )
+			);
+		}
 
 
 		// Live region: the text is rewritten client-side as the value changes.
