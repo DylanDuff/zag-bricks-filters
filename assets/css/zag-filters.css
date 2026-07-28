@@ -141,7 +141,8 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	line-height: 100%;
+	/* Room for descenders; the span is flex-centred so this doesn't shift it. */
+	line-height: 1.4;
 	letter-spacing: 0.02em;
 	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 55%, transparent);
 	transition: color 0.15s ease;
@@ -280,11 +281,17 @@
 	gap: 8px;
 	flex-shrink: 0;
 	height: var(--zag-option-height, 48px);
-	padding: 16px 12px;
+	/**
+	 * No vertical padding: the option is a centred flex container, so padding
+	 * only shrinks the content box. The ref's 16px top/bottom left just 16px of
+	 * height inside a 48px option, which clipped descenders against the label's
+	 * overflow: hidden.
+	 */
+	padding: 0 12px;
 	border-radius: var(--zag-option-radius, 8px);
 	cursor: pointer;
 	user-select: none;
-	line-height: 100%;
+	line-height: 1.4;
 	letter-spacing: 0.01em;
 	white-space: nowrap;
 	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 80%, transparent);
@@ -426,6 +433,8 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	/* Inherited line-height can be tight enough to clip against overflow. */
+	line-height: 1.4;
 	letter-spacing: 0.02em;
 	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 55%, transparent);
 }
@@ -685,7 +694,7 @@
 	font-size: 14px;
 	font-weight: 400;
 	letter-spacing: 0.02em;
-	line-height: 100%;
+	line-height: 1.4;
 	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 80%, transparent);
 	cursor: pointer;
 }
