@@ -182,6 +182,21 @@ trigger is a transparent hit area with no visuals of its own.
 Don't try to out-specify it. If a focus style is needed, move it to a
 non-focusable ancestor.
 
+Bricks pairs it with an outline on `:focus-visible` at the same specificity.
+That one *is* suppressed with `!important`, but only on the field-level controls
+(trigger, input, icon button), because their wrapper already draws the focus
+ring. The calendar's day cells and nav buttons keep it — they sit in the popover
+with no wrapper of their own.
+
+### Gotcha: Bricks' icon colour control recolours our chrome
+
+Setting an icon colour emits a blanket `svg` rule scoped to the element, which
+catches our chevron as well as the user's icon. `.zag-select__indicator svg`
+pins `fill` and `stroke` with `!important`, using an explicit colour rather than
+`currentColor` so a `color` override can't reach it either.
+
+Anything decorative we draw in SVG is a candidate for the same treatment.
+
 ### Gotcha: the positioner must never take pointer events
 
 `render()` keeps the positioner mounted while closed (`removeAttribute('hidden')`)
