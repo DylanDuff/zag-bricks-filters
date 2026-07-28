@@ -266,6 +266,15 @@ the stub when Bricks changes which controls sit behind which name.
 
 ## Conventions
 
+- **Never give a checkbox `default => true`.** `default` is a builder-UI
+  affordance and never reaches `$settings`, so an unchecked box and an untouched
+  one are indistinguishable — a default-on option can't be switched off, and any
+  `!isset(…) || …` fallback written to preserve the default makes the off state
+  unreachable. Phrase boolean options as the exception instead (*Uncapped menu
+  height*, *Auto menu width*, *Hide label visually*), so unset is the default
+  behaviour and the read is a plain `! empty()`. Bricks does the same with
+  `filterHideEmpty` and `hideOnNoFilter`.
+
 - `Version:` in `plugin.php` is the single source of truth; read via
   `get_file_data()` in `Zag\version()`, never a hardcoded constant.
 - Elements register on `init` **priority 20**. Bricks loads `filter-base.php` in
