@@ -2,7 +2,7 @@ import { VanillaMachine, normalizeProps, spreadProps } from '@zag-js/vanilla'
 import * as datePicker from '@zag-js/date-picker'
 import { DateFormatter, getLocalTimeZone, parseDate } from '@internationalized/date'
 
-import { applyFilter, emitChange, getFilterInstance, mounted, register, seedFilterInstance } from './bricks.js'
+import { applyFilter, emitChange, getFilterInstance, mounted, register, seedFilterInstance, updateCaption } from './bricks.js'
 
 /**
  * Zag date picker UI over a Bricks query filter.
@@ -417,11 +417,14 @@ function render(instance, api) {
 
 	const values = api.value || []
 
-	parts.value.textContent = values.length
-		? formatDates(values, config.locale || 'en-GB', config.dateStyle || 'medium')
-		: config.placeholder
+	const locale = config.locale || 'en-GB'
+	const style = config.dateStyle || 'medium'
+
+	parts.value.textContent = values.length ? formatDates(values, locale, style) : config.placeholder
 
 	parts.value.classList.toggle('is-selected', values.length > 0)
+
+	updateCaption(root, values.length ? formatDates(values, locale, style) : '')
 }
 
 function onValueChange(root, details) {

@@ -136,6 +136,29 @@ export function emitChange(instance, detail) {
 	)
 }
 
+/**
+ * Update the caption line, if the element renders one.
+ *
+ * `text` is what's currently selected; empty falls back to the configured
+ * empty-state wording stored on the node.
+ */
+export function updateCaption(root, text) {
+	const caption = root.querySelector('[data-zag-caption]')
+
+	if (!caption) {
+		return
+	}
+
+	const target = caption.querySelector('[data-zag-caption-text]')
+	const filled = !!text
+
+	if (target) {
+		target.textContent = filled ? text : caption.dataset.emptyText || ''
+	}
+
+	caption.classList.toggle('is-set', filled)
+}
+
 /** Tear down instances whose element Bricks has swapped out. */
 function reap() {
 	mounted.forEach((instance, root) => {

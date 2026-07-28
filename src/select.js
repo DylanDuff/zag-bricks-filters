@@ -1,7 +1,7 @@
 import { VanillaMachine, normalizeProps, spreadProps } from '@zag-js/vanilla'
 import * as select from '@zag-js/select'
 
-import { applyFilter, emitChange, getFilterInstance, mounted, register, seedFilterInstance, toArray } from './bricks.js'
+import { applyFilter, emitChange, getFilterInstance, mounted, register, seedFilterInstance, toArray, updateCaption } from './bricks.js'
 
 /**
  * Zag select UI over a Bricks query filter.
@@ -240,6 +240,8 @@ function render(instance, api) {
 	}
 
 	parts.value.classList.toggle('is-selected', values.length > 0)
+
+	updateCaption(root, api.valueAsString)
 }
 
 function onValueChange(root, details) {

@@ -160,6 +160,22 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			'desc'  => esc_html__( 'Still read by screen readers.', 'zag' ),
 		];
 
+		$this->controls['zagCaption'] = [
+			'group' => 'zagFunction',
+			'type'  => 'checkbox',
+			'label' => esc_html__( 'Show caption', 'zag' ),
+			'desc'  => esc_html__( 'A status line below the field showing the current selection.', 'zag' ),
+		];
+
+		$this->controls['zagCaptionEmpty'] = [
+			'group'       => 'zagFunction',
+			'type'        => 'text',
+			'label'       => esc_html__( 'Caption: empty', 'zag' ),
+			'inline'      => true,
+			'placeholder' => esc_html__( 'Nothing selected', 'zag' ),
+			'required'    => [ 'zagCaption', '!=', '' ],
+		];
+
 		$this->controls['zagIcon'] = [
 			'group' => 'zagFunction',
 			'type'  => 'icon',
@@ -397,6 +413,10 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 		 * no label element that reference dangles and the control has no
 		 * accessible name at all, so fall back to the placeholder and hide it.
 		 */
+		$empty_caption = ! empty( $settings['zagCaptionEmpty'] )
+			? $this->render_dynamic_data( $settings['zagCaptionEmpty'] )
+			: esc_html__( 'Nothing selected', 'zag' );
+
 		$label_text   = ! empty( $settings['zagLabel'] ) ? $this->render_dynamic_data( $settings['zagLabel'] ) : '';
 		$label_hidden = $label_text === '' || ! empty( $settings['zagLabelHidden'] );
 
@@ -454,6 +474,18 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 		}
 
 		echo '</select>';
+
+
+		// Live region: the text is rewritten client-side as the value changes.
+		if ( ! empty( $settings['zagCaption'] ) ) {
+			printf(
+				'<p class="%s__caption" data-zag-caption data-empty-text="%s"><span class="%s__dot"></span><span data-zag-caption-text>%s</span></p>',
+				'zag-select',
+				esc_attr( $empty_caption ),
+				'zag-select',
+				esc_html( $empty_caption )
+			);
+		}
 
 		echo '</div>';
 	}

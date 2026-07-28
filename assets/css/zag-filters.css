@@ -647,3 +647,35 @@
 	white-space: nowrap;
 	border: 0;
 }
+
+/* ==========================================================================
+   Caption
+   ========================================================================== */
+
+.zag-select__caption,
+.zag-datepicker__caption {
+	margin: 8px 0 0;
+	font-size: 13px;
+	letter-spacing: 0.01em;
+	color: color-mix(in srgb, var(--zag-fg, #0b1f3a) 50%, transparent);
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 18px;
+}
+
+.zag-select__dot,
+.zag-datepicker__dot {
+	width: 7px;
+	height: 7px;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--zag-fg, #0b1f3a) 20%, transparent);
+	transition: background 0.2s ease;
+}
+
+/* Fills once something is selected — the ref's status affordance. */
+.zag-select__caption.is-set .zag-select__dot,
+.zag-datepicker__caption.is-set .zag-datepicker__dot {
+	background: var(--zag-accent, #5eb4e1);
+}
