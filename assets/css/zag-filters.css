@@ -759,3 +759,39 @@
 .zag-datepicker__iconbtn:hover {
 	color: var(--zag-accent, #5eb4e1);
 }
+
+/* ==========================================================================
+   Defensive guards against Bricks' global rules
+   ========================================================================== */
+
+/**
+ * Keep the chevron out of the icon colour control's reach.
+ *
+ * Setting a colour for the element's icon makes Bricks emit a blanket svg rule
+ * that also recolours our chevron, which isn't the user's icon and shouldn't
+ * follow it. An explicit colour rather than currentColor so a `color` override
+ * can't leak in either. Still themeable through --zag-fg.
+ */
+.zag-select__indicator svg {
+	fill: none !important;
+	stroke: var(--zag-fg, #0b1f3a) !important;
+}
+
+/**
+ * Suppress the frontend focus outline on field-level controls.
+ *
+ * Bricks applies `body.bricks-is-frontend.bricks-is-frontend :focus-visible`
+ * with an outline at (0,3,1). Focus on these is already expressed by the
+ * control wrapper's :focus-within ring, so the outline is a second, misaligned
+ * indicator drawn around the inner element.
+ *
+ * Deliberately scoped to the field: the calendar's day cells and nav buttons
+ * sit inside the popover with no wrapper ring of their own, so they keep the
+ * outline.
+ */
+.zag-select__trigger:focus-visible,
+.zag-datepicker__trigger:focus-visible,
+.zag-datepicker__input:focus-visible,
+.zag-datepicker__iconbtn:focus-visible {
+	outline: none !important;
+}
