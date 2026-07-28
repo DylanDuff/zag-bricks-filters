@@ -224,19 +224,28 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			'placeholder' => esc_html__( 'Below', 'zag' ),
 		];
 
-		$this->controls['zagMenuScroll'] = [
-			'group'   => 'zagFunction',
-			'type'    => 'checkbox',
-			'label'   => esc_html__( 'Limit menu height', 'zag' ),
-			'desc'    => esc_html__( 'Off: the menu grows to fit every option instead of scrolling.', 'zag' ),
-			'default' => true,
+		/**
+		 * Phrased as the exception, not the default.
+		 *
+		 * A checkbox only has set and unset, and `default => true` is a builder-UI
+		 * affordance that never reaches $settings — so an unchecked box and an
+		 * untouched one are indistinguishable, and a default-on option can never
+		 * be turned off. Negative options avoid that entirely: unset is the
+		 * default behaviour.
+		 */
+		$this->controls['zagMenuUncapped'] = [
+			'group' => 'zagFunction',
+			'type'  => 'checkbox',
+			'label' => esc_html__( 'Uncapped menu height', 'zag' ),
+			'desc'  => esc_html__( 'Grow to fit every option instead of scrolling.', 'zag' ),
 		];
 
-		$this->controls['zagSameWidth'] = [
+		// Negative option for the same reason as above.
+		$this->controls['zagAutoWidth'] = [
 			'group' => 'zagFunction',
-			'type'    => 'checkbox',
-			'label'   => esc_html__( 'Match trigger width', 'zag' ),
-			'default' => true,
+			'type'  => 'checkbox',
+			'label' => esc_html__( 'Auto menu width', 'zag' ),
+			'desc'  => esc_html__( 'Size the menu to its content rather than the field.', 'zag' ),
 		];
 
 		$this->controls = array_merge(
@@ -412,7 +421,7 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 		$config = [
 			'multiple'    => $multiple,
 			'placement'   => $settings['zagPlacement'] ?? 'bottom-start',
-			'sameWidth'   => ! isset( $settings['zagSameWidth'] ) || ! empty( $settings['zagSameWidth'] ),
+			'sameWidth'   => empty( $settings['zagAutoWidth'] ),
 			'placeholder' => $placeholder,
 			'counterLabel' => ! empty( $settings['zagCounterLabel'] )
 				? $this->render_dynamic_data( $settings['zagCounterLabel'] )
@@ -422,13 +431,7 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			'items'       => $options,
 		];
 
-		/**
-		 * Unset counts as on, so elements saved before this control existed keep
-		 * the capped, scrolling menu they were built with.
-		 */
-		$limit_height = ! isset( $settings['zagMenuScroll'] ) || ! empty( $settings['zagMenuScroll'] );
-
-		if ( ! $limit_height ) {
+		if ( ! empty( $settings['zagMenuUncapped'] ) ) {
 			$this->set_attribute( '_root', 'data-zag-menu-uncapped', 'true' );
 		}
 

@@ -291,7 +291,7 @@ function select_style_controls() {
 			[
 				'units'       => true,
 				'description' => esc_html__( 'The menu scrolls beyond this.', 'zag' ),
-				'required'    => [ 'zagMenuScroll', '!=', '' ],
+				'required'    => [ 'zagMenuUncapped', '=', '' ],
 			]
 		),
 
@@ -300,7 +300,7 @@ function select_style_controls() {
 			'color',
 			'--zag-scrollbar',
 			[ 'rgb' => 'rgba(11, 31, 59, 0.18)' ],
-			[ 'required' => [ 'zagMenuScroll', '!=', '' ] ]
+			[ 'required' => [ 'zagMenuUncapped', '=', '' ] ]
 		),
 	];
 }
