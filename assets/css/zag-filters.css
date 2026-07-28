@@ -812,6 +812,25 @@
 }
 
 /**
+ * Hold the popover shadow while the surface holds focus.
+ *
+ * Zag makes both popovers focusable (the menu carries tabindex="0", the
+ * calendar tabindex="-1") and focuses them on open, so Bricks' `:focus {
+ * box-shadow: none }` reset strips their elevation for exactly as long as they
+ * are open. The tell is that blurring the browser window brings the shadow
+ * back, because :focus stops matching.
+ *
+ * Unlike the field, there is no non-focusable wrapper to move this to: the
+ * positioner is unstyled and the open/close transition lives on the surface
+ * itself. !important on the declaration is the containable fix — the value
+ * still comes from --zag-popover-shadow, so the style control keeps working.
+ */
+.zag-select__menu,
+.zag-datepicker__content {
+	box-shadow: var(--zag-popover-shadow, 0 0 10px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.1)) !important;
+}
+
+/**
  * Suppress the frontend focus outline on field-level controls.
  *
  * Bricks applies `body.bricks-is-frontend.bricks-is-frontend :focus-visible`
