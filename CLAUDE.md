@@ -162,6 +162,26 @@ The consequence is that our elements now go through Bricks' DOM replacement
 and highlighted state across via `pendingRestore` — without that, a multi-select
 menu (which stays open across a selection) slams shut mid-interaction.
 
+### Gotcha: never style :focus on a focusable element
+
+Bricks ships this on the frontend:
+
+```css
+body.bricks-is-frontend.bricks-is-frontend :focus { outline: none; box-shadow: none }
+```
+
+At **(0,3,1)** it strips the shadow from whatever actually holds focus. Any
+border or focus ring placed on a trigger, button or input therefore disappears
+the moment it is focused, and returns when focus moves away — which reads as an
+intermittent styling glitch rather than a cascade problem.
+
+Both elements put their field box on the **control wrapper** instead. A `div` is
+only ever `:focus-within`, never `:focus`, so the rule cannot reach it. The
+trigger is a transparent hit area with no visuals of its own.
+
+Don't try to out-specify it. If a focus style is needed, move it to a
+non-focusable ancestor.
+
 ### Gotcha: the positioner must never take pointer events
 
 `render()` keeps the positioner mounted while closed (`removeAttribute('hidden')`)
