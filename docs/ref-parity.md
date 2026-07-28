@@ -18,20 +18,24 @@ Three categories, because they need different decisions:
 
 ## Status
 
-**All drift is resolved**, along with the two defects (D2, D4). Every value that
-varied is now a custom property defaulted to the ref, and the Bricks **Style →
-Zag** group writes those same properties — so an untouched element matches the
-ref and any override wins without a specificity fight.
+**Complete.** Every discrepancy is resolved or consciously closed. Rows are
+struck through and kept so the reasoning stays available.
 
-**S3 / S4 resolved by design decision.** No pill display mode: a pill is simply a
-large Field radius, which gives more control than a fixed mode would. The icon
-slot — the part that couldn't be expressed as a style value — became an Icon
-control with its own size, radius and background.
+Two turned out to be defects rather than parity gaps:
 
-**Outstanding: S1, S2, D1, D3** — label, caption and the typeable date input.
-Each needs new markup or controls rather than CSS.
+- **D2** — day and month/year cells had no `[data-focus]` style, so arrow-key
+  navigation gave no visible indication of position.
+- **S1 / D3** — Zag's trigger carries `aria-labelledby` pointing at a label part
+  we never rendered, so both controls had a dangling reference and **no
+  accessible name at all**.
 
-Resolved rows are struck through and kept for reference.
+Two were closed by deciding *not* to build what the ref implies:
+
+- **S3** — no pill display mode. A pill is a large Field radius, which gives
+  more control than a fixed mode.
+- **D1** — typing uses Zag's locale format, not ours. `format` and `parse` must
+  round-trip and the ordinal/long styles cannot, so Date display is hidden while
+  typing is on rather than silently ignored. Range mode keeps the button.
 
 ---
 
@@ -51,8 +55,8 @@ Resolved rows are struck through and kept for reference.
 
 | # | Item | Ref | Status |
 |---|---|---|---|
-| S1 | **Field label** | `.loc-label`, 14px, shown above the field in the standard variant | No label control at all |
-| S2 | **Caption / helper text** | `.loc-caption` with a status dot that fills with accent when set | Absent |
+| ~~S1~~ | **Field label** | `.loc-label`, 14px, shown above the field in the standard variant | No label control at all |
+| ~~S2~~ | **Caption / helper text** | `.loc-caption` with a status dot that fills with accent when set | Absent |
 | ~~S3~~ | **Pill variant** | Base `.loc` is a 99px-radius pill, `padding:0 16px 0 4px` | Only the 8px "standard" form field exists |
 | ~~S4~~ | **Leading icon slot** | `.loc-icon`, 40px white circle inside the pill | Absent — needed for the pill variant to read correctly |
 | ~~S5~~ | **Option gap** | menu is `flex-direction:column; gap:2px` | Options stack flush |
@@ -82,9 +86,9 @@ the more contained approach.
 
 | # | Item | Ref | Status |
 |---|---|---|---|
-| D1 | **Typeable input** | `.dp-control` holds a real `<input>` plus a separate 24px calendar trigger — you can type a date | Ours is a single button; keyboard users must use the calendar |
+| ~~D1~~ | **Typeable input** | `.dp-control` holds a real `<input>` plus a separate 24px calendar trigger — you can type a date | Ours is a single button; keyboard users must use the calendar |
 | ~~D2~~ | **Focus ring on cells** | `[data-focus]` → `inset 0 0 0 2px rgba(94,180,225,.5)` on days and grid cells | Absent — keyboard focus is invisible while navigating the grid |
-| D3 | **Caption / helper text** | `.dp-caption` with status dot | Absent |
+| ~~D3~~ | **Caption / helper text** | `.dp-caption` with status dot | Absent |
 | ~~D4~~ | **Highlight guards** | `[data-highlighted]:not([data-disabled]):not([data-selected])` | Ours highlights disabled and selected cells too |
 
 `D2` is the one I'd treat as a bug rather than a gap — arrow-key navigation
@@ -114,19 +118,14 @@ larger cells, and a lighter weekday row. They're the highest-impact drift items.
 
 ---
 
-## Remaining work
+## Notes carried forward
 
-Only the feature-level gaps are left. They share one decision: how much of the
-prototype's surrounding chrome the elements should own.
-
-- **S1 / D3 — field label and caption.** The ref shows a 14px label above the
-  field and a caption below with a status dot that fills with accent once set.
-  Both need new controls and markup.
-- **S2 — see S1.**
-- **D1 — typeable date input.** The ref's `.dp-control` wraps a real `<input>`
-  plus a small calendar trigger, so a date can be typed. Ours is a single
-  button. This changes the element's interaction model and its progressive
-  enhancement baseline, so it wants its own discussion.
+- The caption is a live region updated client-side; only its empty-state wording
+  is configurable, the selected text comes from the value.
+- The label is **always** rendered, falling back to the placeholder and hiding
+  itself when no text is set, so the `aria-labelledby` reference always
+  resolves. Hidden uses `clip-path`, not `display: none`, which would break the
+  reference again.
 
 <details>
 <summary>Original suggested order (superseded)</summary>
