@@ -114,8 +114,14 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 		return is_array( $controls ) ? $controls : [];
 	}
 
+
+	public function set_control_groups() {
+		// Merge, don't replace: set_common_control_groups() has already run.
+		$this->control_groups = array_merge( $this->control_groups, control_groups() );
+	}
+
 	public function set_controls() {
-		$filter_controls = $this->get_filter_controls();
+		$filter_controls = group_controls( $this->get_filter_controls(), 'zagFilter' );
 
 		if ( ! empty( $filter_controls ) ) {
 			// Single select compares scalars; multi compares sets.
@@ -131,11 +137,6 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			$this->controls = array_merge( $this->controls, $filter_controls );
 		}
 
-		$this->controls['zagSep'] = [
-			'label' => esc_html__( 'Zag UI', 'zag' ),
-			'type'  => 'separator',
-		];
-
 		/**
 		 * Leading icon.
 		 *
@@ -145,24 +146,28 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 		 * style value, so it's the only piece that became a control.
 		 */
 		$this->controls['zagIcon'] = [
+			'group' => 'zagFunction',
 			'type'  => 'icon',
 			'label' => esc_html__( 'Icon', 'zag' ),
 			'desc'  => esc_html__( 'Shown at the start of the field.', 'zag' ),
 		];
 
 		$this->controls['zagMultiple'] = [
+			'group' => 'zagFunction',
 			'type'  => 'checkbox',
 			'label' => esc_html__( 'Multi-select', 'zag' ),
 			'desc'  => esc_html__( 'Allow selecting more than one option.', 'zag' ),
 		];
 
 		$this->controls['placeholder'] = [
+			'group' => 'zagFunction',
 			'type'   => 'text',
 			'label'  => esc_html__( 'Placeholder', 'zag' ),
 			'inline' => true,
 		];
 
 		$this->controls['zagPlacement'] = [
+			'group' => 'zagFunction',
 			'type'        => 'select',
 			'label'       => esc_html__( 'Placement', 'zag' ),
 			'inline'      => true,
@@ -174,6 +179,7 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 		];
 
 		$this->controls['zagSameWidth'] = [
+			'group' => 'zagFunction',
 			'type'    => 'checkbox',
 			'label'   => esc_html__( 'Match trigger width', 'zag' ),
 			'default' => true,
@@ -181,8 +187,10 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 
 		$this->controls = array_merge(
 			$this->controls,
-			shared_style_controls(),
-			select_style_controls()
+			group_controls(
+				array_merge( shared_style_controls(), select_style_controls() ),
+				'zagStyle'
+			)
 		);
 	}
 

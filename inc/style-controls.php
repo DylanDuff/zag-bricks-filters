@@ -23,6 +23,51 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
+ * Accordion groups for the Content tab.
+ *
+ * Order here is the order they appear in the panel.
+ */
+function control_groups() {
+	return [
+		'zagFilter' => [
+			'title' => esc_html__( 'Filtering', 'zag' ),
+			'tab'   => 'content',
+		],
+		'zagFunction' => [
+			'title' => esc_html__( 'Functionality', 'zag' ),
+			'tab'   => 'content',
+		],
+		'zagStyle' => [
+			'title' => esc_html__( 'Style', 'zag' ),
+			'tab'   => 'content',
+		],
+	];
+}
+
+/**
+ * Assign a group to every control that doesn't already declare one.
+ *
+ * Controls already carrying a group keep it — Bricks' own 'filter-active' group
+ * is added by Filter_Element::set_controls_after() and shouldn't be absorbed.
+ *
+ * The tab is set explicitly: Elements::load_element() (elements.php:271)
+ * defaults a tabless control to 'content', and a control whose tab doesn't match
+ * its group's tab is silently dropped.
+ */
+function group_controls( $controls, $group ) {
+	foreach ( $controls as $key => $control ) {
+		if ( ! empty( $control['group'] ) ) {
+			continue;
+		}
+
+		$controls[ $key ]['tab']   = 'content';
+		$controls[ $key ]['group'] = $group;
+	}
+
+	return $controls;
+}
+
+/**
  * Build a control that sets a custom property on the element root.
  */
 function css_var_control( $label, $type, $property, $default, $extra = [] ) {

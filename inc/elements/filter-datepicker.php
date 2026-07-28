@@ -65,8 +65,14 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 		return is_array( $controls ) ? $controls : [];
 	}
 
+
+	public function set_control_groups() {
+		// Merge, don't replace: set_common_control_groups() has already run.
+		$this->control_groups = array_merge( $this->control_groups, control_groups() );
+	}
+
 	public function set_controls() {
-		$filter_controls = $this->get_filter_controls();
+		$filter_controls = group_controls( $this->get_filter_controls(), 'zagFilter' );
 
 		if ( ! empty( $filter_controls ) ) {
 			/**
@@ -151,12 +157,8 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			$this->controls = array_merge( $this->controls, $filter_controls );
 		}
 
-		$this->controls['zagSep'] = [
-			'label' => esc_html__( 'Zag UI', 'zag' ),
-			'type'  => 'separator',
-		];
-
 		$this->controls['placeholder'] = [
+			'group' => 'zagFunction',
 			'type'   => 'text',
 			'label'  => esc_html__( 'Placeholder', 'zag' ),
 			'inline' => true,
@@ -167,6 +169,7 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 		 * Query_Filters' parser expects — this changes the trigger label alone.
 		 */
 		$this->controls['zagDateFormat'] = [
+			'group' => 'zagFunction',
 			'type'        => 'select',
 			'label'       => esc_html__( 'Date display', 'zag' ),
 			'inline'      => true,
@@ -182,6 +185,7 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 		];
 
 		$this->controls['zagPlacement'] = [
+			'group' => 'zagFunction',
 			'type'        => 'select',
 			'label'       => esc_html__( 'Placement', 'zag' ),
 			'inline'      => true,
@@ -194,8 +198,10 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 
 		$this->controls = array_merge(
 			$this->controls,
-			shared_style_controls(),
-			datepicker_style_controls()
+			group_controls(
+				array_merge( shared_style_controls(), datepicker_style_controls() ),
+				'zagStyle'
+			)
 		);
 	}
 
