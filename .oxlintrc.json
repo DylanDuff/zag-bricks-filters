@@ -1,0 +1,14 @@
+{
+  "env": {
+    "browser": true,
+    "es2022": true
+  },
+  "globals": {
+    "bricksData": "readonly",
+    "bricksUtils": "readonly",
+    "BricksFunction": "readonly"
+  },
+  "rules": {
+    "no-undef": "error"
+  }
+}

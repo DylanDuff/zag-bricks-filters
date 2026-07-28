@@ -244,21 +244,45 @@ function buildParts(root, config) {
 	const control = document.createElement('div')
 	control.className = 'zag-datepicker__control'
 
-	const trigger = document.createElement('button')
-	trigger.type = 'button'
-	trigger.className = 'zag-datepicker__trigger'
-
-	const value = document.createElement('span')
-	value.className = 'zag-datepicker__value'
-	value.textContent = config.placeholder
-
-	const icon = document.createElement('span')
-	icon.className = 'zag-datepicker__icon'
-	icon.innerHTML =
+	const CALENDAR_SVG =
 		'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'
 
-	trigger.append(value, icon)
-	control.append(trigger)
+	const trigger = document.createElement('button')
+	trigger.type = 'button'
+
+	let value = null
+	let input = null
+
+	if (config.typeable) {
+		/**
+		 * Promote the progressive-enhancement input to the real one.
+		 *
+		 * It already carries the field name and value, so reusing it means the
+		 * no-JS baseline and the enhanced control are the same node rather than
+		 * two that have to be kept in step.
+		 */
+		input = root.querySelector('[data-zag-native]')
+		input.className = 'zag-datepicker__input'
+
+		trigger.className = 'zag-datepicker__iconbtn'
+		trigger.setAttribute('aria-label', config.placeholder || 'Open calendar')
+		trigger.innerHTML = CALENDAR_SVG
+
+		control.append(input, trigger)
+	} else {
+		trigger.className = 'zag-datepicker__trigger'
+
+		value = document.createElement('span')
+		value.className = 'zag-datepicker__value'
+		value.textContent = config.placeholder
+
+		const icon = document.createElement('span')
+		icon.className = 'zag-datepicker__icon'
+		icon.innerHTML = CALENDAR_SVG
+
+		trigger.append(value, icon)
+		control.append(trigger)
+	}
 
 	const positioner = document.createElement('div')
 	positioner.className = 'zag-datepicker__positioner'
