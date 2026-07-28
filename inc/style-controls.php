@@ -278,6 +278,28 @@ function select_style_controls() {
 			'2px',
 			[ 'units' => true ]
 		),
+
+		/**
+		 * Both of these are ours rather than the ref's — its menu has no
+		 * max-height and never scrolls, so it needed neither.
+		 */
+		'zagMenuMaxHeight' => css_var_control(
+			esc_html__( 'Max height', 'zag' ),
+			'number',
+			'--zag-menu-max-height',
+			'320px',
+			[
+				'units'       => true,
+				'description' => esc_html__( 'The menu scrolls beyond this.', 'zag' ),
+			]
+		),
+
+		'zagScrollbar' => css_var_control(
+			esc_html__( 'Scrollbar', 'zag' ),
+			'color',
+			'--zag-scrollbar',
+			[ 'rgb' => 'rgba(11, 31, 59, 0.18)' ]
+		),
 	];
 }
 
