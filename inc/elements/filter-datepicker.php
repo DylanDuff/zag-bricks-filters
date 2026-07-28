@@ -69,6 +69,25 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 		$filter_controls = $this->get_filter_controls();
 
 		if ( ! empty( $filter_controls ) ) {
+			/**
+			 * Only offer fields that actually hold a date.
+			 *
+			 * The inherited control lists every post field. Picking a
+			 * non-date one builds a date_query against a column that can't
+			 * satisfy it, which returns nothing and looks like a broken filter
+			 * rather than a misconfigured one.
+			 */
+			if ( ! empty( $filter_controls['wpPostField'] ) ) {
+				$filter_controls['wpPostField']['options'] = [
+					'post_date'     => esc_html__( 'Post date', 'zag' ),
+					'post_modified' => esc_html__( 'Post modified date', 'zag' ),
+				];
+			}
+
+			if ( ! empty( $filter_controls['wpUserField'] ) ) {
+				$filter_controls['wpUserField']['options']['user_registered'] = esc_html__( 'User registered date', 'zag' );
+			}
+
 			// Dates have no taxonomy dimension; Bricks strips these too.
 			unset(
 				$filter_controls['filterSource']['options']['taxonomy'],
@@ -113,6 +132,17 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			];
 
 			$filter_controls['fieldCompareOperator']['placeholder'] = '==';
+
+			/**
+			 * The mistake this catches: setting Source to Custom field with a
+			 * meta key of post_date. That's a wp_posts column, not post meta, so
+			 * the meta_query matches nothing and the filter looks broken.
+			 */
+			$filter_controls['zagCustomFieldInfo'] = [
+				'type'     => 'info',
+				'content'  => esc_html__( 'Custom fields only. Post date and modified date live under Source: WP field. Values must be stored as Y-m-d or Y-m-d H:i.', 'zag' ),
+				'required' => [ [ 'filterSource', '=', 'customField' ] ],
+			];
 
 			$this->controls = array_merge( $this->controls, $filter_controls );
 		}
