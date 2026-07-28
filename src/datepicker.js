@@ -1,6 +1,6 @@
 import { VanillaMachine, normalizeProps, spreadProps } from '@zag-js/vanilla'
 import * as datePicker from '@zag-js/date-picker'
-import { parseDate } from '@internationalized/date'
+import { DateFormatter, getLocalTimeZone, parseDate } from '@internationalized/date'
 
 import { applyFilter, emitChange, getFilterInstance, mounted, register, seedFilterInstance } from './bricks.js'
 
@@ -23,6 +23,44 @@ const SVG_PREV =
 	'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 7 L9.5 12 L14.5 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 const SVG_NEXT =
 	'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.5 7 L14.5 12 L9.5 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+
+/**
+ * Format the selected date(s) for the trigger label.
+ *
+ * Display only — the value written back to Bricks stays ISO. Ranges collapse
+ * the parts both ends share, so "1 May 2026 – 15 May 2026" reads as
+ * "1 – 15 May 2026". Numeric ('short') styles are never collapsed: "01 –
+ * 15/05/2026" is worse than the long form, not better.
+ */
+function formatDates(values, locale, dateStyle) {
+	const zone = getLocalTimeZone()
+	const format = (date, options) => new DateFormatter(locale, options).format(date.toDate(zone))
+
+	if (!values.length) {
+		return ''
+	}
+
+	if (values.length === 1) {
+		return format(values[0], { dateStyle })
+	}
+
+	const [start, end] = values
+	const full = format(end, { dateStyle })
+
+	if (dateStyle === 'short') {
+		return `${format(start, { dateStyle })} – ${full}`
+	}
+
+	if (start.year === end.year && start.month === end.month) {
+		return `${format(start, { day: 'numeric' })} – ${full}`
+	}
+
+	if (start.year === end.year) {
+		return `${format(start, { day: 'numeric', month: 'short' })} – ${full}`
+	}
+
+	return `${format(start, { dateStyle })} – ${full}`
+}
 
 /** Parse the stored string into DateValues, discarding anything malformed. */
 function parseValue(value) {
@@ -317,11 +355,9 @@ function render(instance, api) {
 
 	const values = api.value || []
 
-	if (!values.length) {
-		parts.value.textContent = config.placeholder
-	} else {
-		parts.value.textContent = values.map(ISO).join(' – ')
-	}
+	parts.value.textContent = values.length
+		? formatDates(values, config.locale || 'en-GB', config.dateStyle || 'medium')
+		: config.placeholder
 
 	parts.value.classList.toggle('is-selected', values.length > 0)
 }

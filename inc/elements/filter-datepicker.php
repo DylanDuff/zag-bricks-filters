@@ -158,6 +158,24 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			'inline' => true,
 		];
 
+		/**
+		 * Display only. The stored value stays ISO (Y-m-d), because that is what
+		 * Query_Filters' parser expects — this changes the trigger label alone.
+		 */
+		$this->controls['zagDateFormat'] = [
+			'type'        => 'select',
+			'label'       => esc_html__( 'Date display', 'zag' ),
+			'inline'      => true,
+			'options'     => [
+				'medium' => esc_html__( 'Medium', 'zag' ) . ' — 1 May 2026',
+				'long'   => esc_html__( 'Long', 'zag' ) . ' — 1 May 2026',
+				'full'   => esc_html__( 'Full', 'zag' ) . ' — Friday 1 May 2026',
+				'short'  => esc_html__( 'Short', 'zag' ) . ' — 01/05/2026',
+			],
+			'placeholder' => esc_html__( 'Medium', 'zag' ),
+			'description' => esc_html__( 'Rendered in the site language. Does not affect the stored value.', 'zag' ),
+		];
+
 		$this->controls['zagPlacement'] = [
 			'type'        => 'select',
 			'label'       => esc_html__( 'Placement', 'zag' ),
@@ -267,6 +285,7 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			'enableTime'  => $this->has_time(),
 			'placeholder' => $placeholder,
 			'placement'   => $settings['zagPlacement'] ?? 'bottom-start',
+			'dateStyle'   => $settings['zagDateFormat'] ?? 'medium',
 			'value'       => $current_value,
 			'locale'      => str_replace( '_', '-', get_locale() ),
 			// WP stores 0 for Sunday; Zag uses the same convention.
