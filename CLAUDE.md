@@ -202,11 +202,26 @@ with no wrapper of their own.
 ### Gotcha: Bricks' icon colour control recolours our chrome
 
 Setting an icon colour emits a blanket `svg` rule scoped to the element, which
-catches our chevron as well as the user's icon. `.zag-select__indicator svg`
-pins `fill` and `stroke` with `!important`, using an explicit colour rather than
-`currentColor` so a `color` override can't reach it either.
+catches everything we draw in SVG, not just the user's icon. Guarded so far:
 
-Anything decorative we draw in SVG is a candidate for the same treatment.
+| Element | Pinned to |
+|---|---|
+| `.zag-select__indicator svg` (chevron) | `--zag-fg` |
+| `.zag-select:not([data-zag-multiple]) .zag-select__check svg` | `--zag-accent` |
+| `.zag-select[data-zag-multiple] .zag-select__check svg` | `--zag-check-color`, default `#fff` |
+
+The tick is split by mode deliberately — single is an accent tick on the menu
+background, multi is a white tick inside the filled accent checkbox, so one rule
+for both fixes one and breaks the other.
+
+Pin to an **explicit colour, never `currentColor`**: the blanket rule may set
+`color`, which `currentColor` would happily inherit, leaving a guard that looks
+right and does nothing.
+
+The date picker's SVGs are unguarded on purpose. It has no icon control, so
+nothing emits the rule there, and its nav and calendar icons change colour on
+hover — pinning them would break that. Guard them only if the collision actually
+appears.
 
 ### Gotcha: the positioner must never take pointer events
 
