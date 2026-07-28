@@ -66,6 +66,20 @@
 	box-shadow: inset 0 0 0 1px var(--zag-border-hover, rgba(147, 163, 181, 0.75));
 }
 
+/**
+ * Focused, but not focus-visible — i.e. after a mouse click.
+ *
+ * The ref omits this state, leaving only the base rule, whose single class
+ * loses to a theme's `button:focus { box-shadow: none }` (0,1,1 beats 0,1,0)
+ * and the border disappears while focused. Restating the border here at 0,2,0
+ * holds it. :focus-visible follows so keyboard focus still wins.
+ */
+.zag-select__trigger:focus,
+.zag-datepicker__trigger:focus {
+	outline: none;
+	box-shadow: inset 0 0 0 1px var(--zag-border-hover, rgba(147, 163, 181, 0.75));
+}
+
 .zag-select__trigger:focus-visible {
 	outline: none;
 	box-shadow:
