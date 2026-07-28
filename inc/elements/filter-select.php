@@ -186,13 +186,6 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 		);
 	}
 
-	public function set_control_groups() {
-		$this->control_groups['zagStyle'] = [
-			'title' => esc_html__( 'Zag', 'zag' ),
-			'tab'   => 'style',
-		];
-	}
-
 	/**
 	 * Count options with the combine logic a multi-select actually uses.
 	 *

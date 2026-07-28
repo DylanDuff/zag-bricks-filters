@@ -3,12 +3,15 @@
  * Style controls shared by the Zag filter elements.
  *
  * Each control writes a CSS custom property onto the element root, which
- * assets/css/zag-filters.css consumes. Two consequences worth keeping:
+ * assets/css/zag-filters.css consumes through a var() fallback.
  *
- * - Defaults here are exactly the ref prototype's values, so an untouched
- *   element renders pixel-equal to the design in ref/.
- * - Overrides land as inline custom properties on the root, so they beat the
- *   stylesheet without any specificity escalation.
+ * Defaults here mirror the ref prototype, so the builder shows the real values.
+ * The stylesheet must NOT also declare them: Bricks emits these as
+ * `.brxe-<element> { --x: … }`, the same specificity as our own rule, so a
+ * declared default would win on source order and no control would ever apply.
+ *
+ * Controls live on the Content tab beside the other Zag options rather than
+ * under Style, so everything for the element reads in one place.
  *
  * @see docs/ref-parity.md
  */
@@ -25,8 +28,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 function css_var_control( $label, $type, $property, $default, $extra = [] ) {
 	return array_merge(
 		[
-			'tab'     => 'style',
-			'group'   => 'zagStyle',
 			'label'   => $label,
 			'type'    => $type,
 			'inline'  => true,
@@ -48,8 +49,6 @@ function css_var_control( $label, $type, $property, $default, $extra = [] ) {
 function shared_style_controls() {
 	return [
 		'zagPaletteSep' => [
-			'tab'   => 'style',
-			'group' => 'zagStyle',
 			'label' => esc_html__( 'Palette', 'zag' ),
 			'type'  => 'separator',
 		],
@@ -98,8 +97,6 @@ function shared_style_controls() {
 		),
 
 		'zagFieldSep' => [
-			'tab'   => 'style',
-			'group' => 'zagStyle',
 			'label' => esc_html__( 'Field', 'zag' ),
 			'type'  => 'separator',
 		],
@@ -124,8 +121,6 @@ function shared_style_controls() {
 		),
 
 		'zagPopoverSep' => [
-			'tab'   => 'style',
-			'group' => 'zagStyle',
 			'label' => esc_html__( 'Popover', 'zag' ),
 			'type'  => 'separator',
 		],
@@ -139,8 +134,6 @@ function shared_style_controls() {
 		 * layer replaces it — which is a choice, not a silent downgrade.
 		 */
 		'zagPopoverShadow' => [
-			'tab'         => 'style',
-			'group'       => 'zagStyle',
 			'label'       => esc_html__( 'Shadow', 'zag' ),
 			'type'        => 'box-shadow',
 			'css'         => [
@@ -160,8 +153,6 @@ function shared_style_controls() {
 function select_style_controls() {
 	return [
 		'zagIconSep' => [
-			'tab'      => 'style',
-			'group'    => 'zagStyle',
 			'label'    => esc_html__( 'Icon', 'zag' ),
 			'type'     => 'separator',
 			'required' => [ 'zagIcon', '!=', '' ],
@@ -199,8 +190,6 @@ function select_style_controls() {
 		),
 
 		'zagMenuSep' => [
-			'tab'   => 'style',
-			'group' => 'zagStyle',
 			'label' => esc_html__( 'Menu', 'zag' ),
 			'type'  => 'separator',
 		],
@@ -253,8 +242,6 @@ function select_style_controls() {
 function datepicker_style_controls() {
 	return [
 		'zagCalendarSep' => [
-			'tab'   => 'style',
-			'group' => 'zagStyle',
 			'label' => esc_html__( 'Calendar', 'zag' ),
 			'type'  => 'separator',
 		],

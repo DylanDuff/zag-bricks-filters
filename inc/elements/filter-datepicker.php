@@ -199,13 +199,6 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 		);
 	}
 
-	public function set_control_groups() {
-		$this->control_groups['zagStyle'] = [
-			'title' => esc_html__( 'Zag', 'zag' ),
-			'tab'   => 'style',
-		];
-	}
-
 	/**
 	 * Prepare sources, derive the selectable range, and emit data-brx-filter.
 	 *
