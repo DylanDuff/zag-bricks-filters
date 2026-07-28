@@ -24,6 +24,35 @@ const SVG_PREV =
 const SVG_NEXT =
 	'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.5 7 L14.5 12 L9.5 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
+const ORDINAL_SUFFIXES = { one: 'st', two: 'nd', few: 'rd', other: 'th' }
+
+/**
+ * Ordinals are English-only here.
+ *
+ * Intl.PluralRules gives an ordinal category for any locale, but the st/nd/rd/th
+ * mapping is English — German returns 'other' for everything and would render
+ * "1th" where it wants "1.". Anything non-English falls back to the plain long
+ * form rather than producing wrong grammar.
+ */
+function isEnglish(locale) {
+	return String(locale).toLowerCase().split('-')[0] === 'en'
+}
+
+function ordinalise(parts, locale) {
+	const rules = new Intl.PluralRules(locale, { type: 'ordinal' })
+
+	return parts
+		.map((part) => {
+			if (part.type !== 'day') {
+				return part.value
+			}
+
+			// Handles the 11th/12th/13th exceptions a naive n%10 map gets wrong.
+			return `${part.value}${ORDINAL_SUFFIXES[rules.select(Number(part.value))] || 'th'}`
+		})
+		.join('')
+}
+
 /**
  * Format the selected date(s) for the trigger label.
  *
@@ -34,21 +63,37 @@ const SVG_NEXT =
  */
 function formatDates(values, locale, dateStyle) {
 	const zone = getLocalTimeZone()
-	const format = (date, options) => new DateFormatter(locale, options).format(date.toDate(zone))
+	const ordinal = dateStyle === 'ordinal' && isEnglish(locale)
+
+	// 'ordinal' isn't a real Intl style; it's the long form with a suffixed day.
+	const style = dateStyle === 'ordinal' ? 'long' : dateStyle
+
+	const format = (date, options) => {
+		// dateStyle can't be combined with component options, so when we need
+		// the parts back to suffix the day, spell the components out instead.
+		const resolved = ordinal && options.dateStyle
+			? { day: 'numeric', month: 'long', year: 'numeric' }
+			: options
+
+		const formatter = new DateFormatter(locale, resolved)
+		const jsDate = date.toDate(zone)
+
+		return ordinal ? ordinalise(formatter.formatToParts(jsDate), locale) : formatter.format(jsDate)
+	}
 
 	if (!values.length) {
 		return ''
 	}
 
 	if (values.length === 1) {
-		return format(values[0], { dateStyle })
+		return format(values[0], { dateStyle: style })
 	}
 
 	const [start, end] = values
-	const full = format(end, { dateStyle })
+	const full = format(end, { dateStyle: style })
 
-	if (dateStyle === 'short') {
-		return `${format(start, { dateStyle })} – ${full}`
+	if (style === 'short') {
+		return `${format(start, { dateStyle: style })} – ${full}`
 	}
 
 	if (start.year === end.year && start.month === end.month) {
@@ -56,10 +101,14 @@ function formatDates(values, locale, dateStyle) {
 	}
 
 	if (start.year === end.year) {
-		return `${format(start, { day: 'numeric', month: 'short' })} – ${full}`
+		// Match the month width the end is using, or the two halves disagree
+		// ("3rd May – 22nd August 2026").
+		const month = style === 'medium' ? 'short' : 'long'
+
+		return `${format(start, { day: 'numeric', month })} – ${full}`
 	}
 
-	return `${format(start, { dateStyle })} – ${full}`
+	return `${format(start, { dateStyle: style })} – ${full}`
 }
 
 /** Parse the stored string into DateValues, discarding anything malformed. */

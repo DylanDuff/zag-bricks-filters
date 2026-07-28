@@ -167,13 +167,14 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			'label'       => esc_html__( 'Date display', 'zag' ),
 			'inline'      => true,
 			'options'     => [
-				'medium' => esc_html__( 'Medium', 'zag' ) . ' — 1 May 2026',
-				'long'   => esc_html__( 'Long', 'zag' ) . ' — 1 May 2026',
-				'full'   => esc_html__( 'Full', 'zag' ) . ' — Friday 1 May 2026',
-				'short'  => esc_html__( 'Short', 'zag' ) . ' — 01/05/2026',
+				'medium'  => esc_html__( 'Medium', 'zag' ) . ' — 1 May 2026',
+				'ordinal' => esc_html__( 'Ordinal', 'zag' ) . ' — 1st May 2026',
+				'long'    => esc_html__( 'Long', 'zag' ) . ' — 1 May 2026',
+				'full'    => esc_html__( 'Full', 'zag' ) . ' — Friday 1 May 2026',
+				'short'   => esc_html__( 'Short', 'zag' ) . ' — 01/05/2026',
 			],
 			'placeholder' => esc_html__( 'Medium', 'zag' ),
-			'description' => esc_html__( 'Rendered in the site language. Does not affect the stored value.', 'zag' ),
+			'description' => esc_html__( 'Rendered in the site language. Does not affect the stored value. Ordinal applies to English only; other languages fall back to Long.', 'zag' ),
 		];
 
 		$this->controls['zagPlacement'] = [
