@@ -1,0 +1,409 @@
+Content is user-generated and unverified.
+
+
+12
+Learn how to customize
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OnePointHealth — Meet our team (prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#eef1f0;--surface:#ffffff;--ink:#16201e;--muted:#5a6b67;--line:#dde3e1;
+    --brand:#0e5b54;--brand-dark:#0a4640;--brand-tint:#e3efed;
+    --accept:#0e5b54;--accept-bg:#e3efed;--limited:#9a6a12;--limited-bg:#f6ecd6;
+    --none:#6a6a6a;--none-bg:#ececec;--chip:#f5f7f6;--focus:#1573b8;
+    --radius:14px;--shadow:0 1px 2px rgba(22,32,30,.04), 0 8px 24px rgba(22,32,30,.06);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+
+  .protonote{background:var(--ink);color:#dfe7e5;font-size:13px;border-bottom:1px solid #243430}
+  .protonote .wrap{padding:10px 20px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .protonote strong{color:#fff;font-weight:600}
+  .protonote span{color:#9fb3af}
+
+  header.page{padding:46px 0 26px}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--brand);font-weight:600;margin:0 0 12px}
+  h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:clamp(34px,5vw,52px);line-height:1.04;margin:0 0 14px;letter-spacing:-.01em}
+  .lede{font-size:clamp(16px,2.2vw,19px);color:var(--muted);max-width:60ch;margin:0}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 22px;margin-top:6px}
+
+  .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .search{flex:1;min-width:240px;display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:0 12px;background:#fbfcfc}
+  .search svg{flex:none;color:var(--muted)}
+  .search input{border:0;background:transparent;padding:12px 0;font-size:15px;width:100%;color:var(--ink);font-family:inherit}
+  .search input:focus{outline:none}
+
+  /* "Read as" hint — kept in code, hidden for now */
+  .parsehint{font-size:13px;color:var(--muted);margin:12px 0 0;padding:9px 12px;background:#fbfcfc;border:1px solid var(--line);border-radius:9px;display:none}
+  .parsehint b{color:var(--brand-dark);font-weight:600}
+
+  /* filter row below the input: dropdowns + accepting switch */
+  .filterrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  .filterbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .dd{position:relative}
+  .dd-trigger{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);background:#fbfcfc;border-radius:10px;padding:11px 14px;font-family:inherit;font-size:14px;color:var(--ink);font-weight:500;cursor:pointer;white-space:nowrap;transition:border-color .14s,background .14s}
+  .dd-trigger:hover{background:var(--brand-tint);border-color:#c5ddd9}
+  .dd.open .dd-trigger{border-color:var(--brand);background:#fff}
+  .dd-trigger .chev{transition:transform .15s;color:var(--muted)}
+  .dd.open .dd-trigger .chev{transform:rotate(180deg)}
+  .dd-count{background:var(--brand);color:#fff;font-size:12px;font-weight:600;min-width:20px;height:20px;border-radius:999px;display:inline-grid;place-items:center;padding:0 6px}
+  .dd-count[hidden]{display:none}
+  .dd-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:30;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(22,32,30,.16);padding:7px;min-width:248px;max-height:330px;overflow:auto;display:none}
+  .dd.open .dd-menu{display:block}
+  .dd-opt{display:flex;align-items:center;gap:11px;width:100%;text-align:left;border:0;background:none;font-family:inherit;font-size:14px;color:var(--ink);padding:9px 10px;border-radius:8px;cursor:pointer}
+  .dd-opt:hover{background:var(--chip)}
+  .dd-opt .box{flex:none;width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line);display:grid;place-items:center;color:#fff;transition:background .12s,border-color .12s}
+  .dd-opt .box svg{opacity:0;transition:opacity .12s}
+  .dd-opt[aria-pressed="true"]{color:var(--brand-dark);font-weight:500}
+  .dd-opt[aria-pressed="true"] .box{background:var(--brand);border-color:var(--brand)}
+  .dd-opt[aria-pressed="true"] .box svg{opacity:1}
+
+  /* accepting switch toggle */
+  .acctoggle{margin-left:auto;display:inline-flex;align-items:center;gap:10px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 14px;font-family:inherit;font-size:14px;font-weight:500;color:var(--ink);cursor:pointer;white-space:nowrap;transition:border-color .14s}
+  .acctoggle:hover{border-color:#c5ddd9}
+  .acctoggle .switch{position:relative;flex:none;width:38px;height:22px;border-radius:999px;background:#cfd6d4;transition:background .16s}
+  .acctoggle .knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(22,32,30,.3);transition:transform .16s}
+  .acctoggle[aria-checked="true"]{border-color:#c5ddd9}
+  .acctoggle[aria-checked="true"] .switch{background:var(--brand)}
+  .acctoggle[aria-checked="true"] .knob{transform:translateX(16px)}
+
+  /* results */
+  .resultbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:22px 0 12px}
+  .count{font-size:15px;font-weight:600;margin:0}
+  .count span{color:var(--muted);font-weight:400}
+  .sort{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .sort select{font-family:inherit;font-size:13px;color:var(--ink);background:#fbfcfc;border:1px solid var(--line);border-radius:9px;padding:7px 30px 7px 10px;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235a6b67' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center}
+
+  .activefilters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 0}
+  .aflabel{font-size:13px;color:var(--muted);margin-right:2px}
+  .afchip{display:inline-flex;align-items:center;gap:7px;background:var(--brand-tint);border:1px solid #cadfdb;color:var(--brand-dark);border-radius:999px;padding:5px 8px 5px 12px;font-size:13px;font-weight:500}
+  .afchip button{border:0;background:#cadfdb;color:var(--brand-dark);width:18px;height:18px;border-radius:50%;cursor:pointer;font-size:12px;line-height:1;display:grid;place-items:center;padding:0}
+  .afchip button:hover{background:var(--brand);color:#fff}
+  .clearall{background:none;border:0;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline;padding:4px}
+  .clearall:hover{color:var(--ink)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;padding:0 0 60px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+  .card-top{display:flex;gap:13px;align-items:flex-start}
+  .avatar{flex:none;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-weight:600;color:#fff;font-size:18px;font-family:Fraunces,serif}
+  .who{flex:1;min-width:0}
+  .who h3{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em}
+  .namerow{display:flex;align-items:center;gap:8px}
+  .namerow h3{flex:1;min-width:0}
+  .profile-btn{flex:none;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:#fbfcfc;color:var(--brand-dark);display:grid;place-items:center;cursor:pointer;transition:background .14s,border-color .14s}
+  .profile-btn:hover{background:var(--brand-tint);border-color:#c5ddd9}
+  .role{font-size:13px;color:var(--muted);margin:0}
+  .rolerow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px}
+  .avail{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;border-radius:999px;padding:3px 10px}
+  .avail::before{content:"";width:7px;height:7px;border-radius:50%}
+  .avail.accepting{background:var(--accept-bg);color:var(--accept)}.avail.accepting::before{background:var(--accept)}
+  .avail.limited{background:var(--limited-bg);color:var(--limited)}.avail.limited::before{background:var(--limited)}
+  .avail.none{background:var(--none-bg);color:var(--none)}.avail.none::before{background:var(--none)}
+  .line{font-size:14px;color:#2c3a37;margin:13px 0 0}
+  .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:13px}
+  .tag{font-size:12px;background:var(--chip);border:1px solid var(--line);border-radius:7px;padding:4px 9px;color:var(--ink);cursor:pointer;font-family:inherit}
+  .tag:hover{background:var(--brand-tint);border-color:#c5ddd9}
+  .funding{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+  .fund{font-size:11px;color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+  .actions{margin-top:auto;padding-top:15px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+  .btn{font-family:inherit;font-size:13.5px;font-weight:600;border-radius:9px;padding:11px 13px;cursor:pointer;border:1px solid var(--brand);background:var(--brand);color:#fff;width:100%;transition:background .14s}
+  .btn:hover{background:var(--brand-dark)}
+  .bookloc{font-size:12px;color:var(--muted);margin:-2px 0 0;display:flex;align-items:center;gap:6px}
+  .bookloc svg{flex:none;color:var(--muted)}
+
+  .empty{grid-column:1/-1;text-align:center;padding:54px 20px;border:1px dashed var(--line);border-radius:var(--radius);background:var(--surface)}
+  .empty h3{font-family:Fraunces,serif;font-size:22px;margin:0 0 8px;font-weight:600}
+  .empty p{color:var(--muted);margin:0 0 16px}
+  .empty button{font-family:inherit;font-size:14px;font-weight:600;border:1px solid var(--brand);background:#fff;color:var(--brand-dark);border-radius:9px;padding:9px 16px;cursor:pointer}
+
+  :focus-visible{outline:2.5px solid var(--focus);outline-offset:2px;border-radius:6px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<div class="protonote"><div class="wrap">
+  <strong>Reduced prototype.</strong>
+  <span>Type a sentence (e.g. "a podiatrist in Penrith who accepts NDIS") and the dropdowns set themselves via local keyword matching. Avery and Jordan are from the spec; other practitioners are sample data; styling is placeholder.</span>
+</div></div>
+
+<header class="page"><div class="wrap">
+  <p class="eyebrow">OneTeam</p>
+  <h1>Meet our team</h1>
+  <p class="lede">One connected team working across Western Sydney, the Blue Mountains and Ryde. Find the right practitioner for you, then book when you are ready.</p>
+</div></header>
+
+<div class="wrap">
+  <div class="panel">
+    <div class="controls">
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="search" type="text" placeholder='Try: "a podiatrist in Penrith who accepts NDIS"' aria-label="Search by name, keyword, or a sentence">
+      </div>
+    </div>
+    <div class="parsehint" id="parsehint" hidden></div>
+    <div class="filterrow">
+      <div class="filterbar" id="groups"></div>
+      <button class="acctoggle" id="accepting" type="button" role="switch" aria-checked="true">
+        <span class="switch"><span class="knob"></span></span>
+        <span>Accepting new patients</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="resultbar">
+    <p class="count" id="count"></p>
+    <div class="sort">
+      <label for="sortby">Sort by</label>
+      <select id="sortby">
+        <option value="accepting">Accepting new patients first</option>
+        <option value="name">Name (A–Z)</option>
+        <option value="practice">Areas of practice</option>
+        <option value="location">Location</option>
+      </select>
+    </div>
+  </div>
+  <div class="activefilters" id="activefilters"></div>
+
+  <div class="grid" id="grid" style="margin-top:14px"></div>
+</div>
+
+<script>
+const PRACTICE=["Podiatry","Physiotherapy","Exercise Physiology","Dietetics","Psychology","Chiropractic","Remedial Massage"];
+const LOCATIONS=["Penrith","Ropes Crossing","Blaxland","Springwood","Katoomba","Ryde","Lindfield"];
+const FUNDING=["Medicare","NDIS","DVA","WorkCover","Private health"];
+
+const PEOPLE=[
+  {n:"Avery Stone",r:"Physiotherapist, Head of Physiotherapy and Sports Medicine",p:["Physiotherapy"],loc:["Penrith"],f:["Athletes and active people","Older adults"],s:["Sports injuries","Persistent pain","Neck and headaches"],fund:["Medicare","DVA","Private health"],av:"limited",line:"Avery helps people with long-standing pain and sports injuries get back to the movement and everyday function they value."},
+  {n:"Jordan Reed",r:"Podiatrist",p:["Podiatry"],loc:["Penrith","Ropes Crossing","Katoomba"],f:["Children and teens","Athletes and active people","Older adults"],s:["Diabetic foot care","Persistent foot pain","Custom bracing"],fund:["Medicare","DVA","NDIS","WorkCover","Private health"],av:"accepting",line:"Jordan helps people troubled by foot and lower-limb pain move more comfortably and get back to daily life, from children and runners to older adults."},
+  {n:"Casey Lin",r:"Psychologist",p:["Psychology"],loc:["Ryde","Katoomba"],f:["Children and teens"],s:["Anxiety","Adolescent mental health"],fund:["Medicare","NDIS","Private health"],av:"accepting",line:"Casey works with children and teens finding their feet again, building practical tools for anxiety and the pressures of growing up."},
+  {n:"Sam Porter",r:"Exercise Physiologist",p:["Exercise Physiology"],loc:["Ryde","Blaxland"],f:["Living with a chronic condition","Older adults"],s:["Diabetes management","Cardiac rehabilitation"],fund:["Medicare","NDIS","DVA","WorkCover"],av:"accepting",line:"Sam builds clinical exercise programs for people managing diabetes, heart conditions and recovery, designed around your diagnosis, not a gym session."},
+  {n:"Riley Shah",r:"Dietitian",p:["Dietetics"],loc:["Springwood","Katoomba"],f:["Living with a chronic condition"],s:["Weight management","Gut health"],fund:["Medicare","NDIS","Private health"],av:"limited",line:"Riley gives practical nutrition advice that fits the life you actually lead, for managing weight, gut health and ongoing conditions."},
+  {n:"Morgan Blake",r:"Podiatrist",p:["Podiatry"],loc:["Springwood","Blaxland"],f:["Older adults"],s:["Diabetic foot care","Nail surgery"],fund:["Medicare","DVA","Private health"],av:"accepting",line:"Morgan looks after feet that have done a lot of living, with steady, regular care that keeps older adults comfortable and independent."},
+  {n:"Taylor Quinn",r:"Chiropractor",p:["Chiropractic"],loc:["Penrith"],f:["Athletes and active people"],s:["Lower back pain","Sports injuries"],fund:["Private health"],av:"none",line:"Taylor helps active people move and feel better through targeted adjustments, with a focus on lower back pain and sport."},
+  {n:"Jamie Park",r:"Remedial Massage Therapist",p:["Remedial Massage"],loc:["Penrith","Ropes Crossing"],f:["Athletes and active people"],s:["Sports recovery","Deep tissue"],fund:["Private health"],av:"accepting",line:"Jamie's remedial work helps you recover faster and move better, built around what your body actually needs that week."},
+  {n:"Drew Ellis",r:"Podiatrist · Learning Officer",p:["Podiatry"],loc:["Penrith"],f:["Children and teens","Athletes and active people"],s:["Custom bracing","Sports podiatry"],fund:["Medicare","NDIS","Private health"],av:"accepting",line:"Drew treats growing feet and active patients, and helps train the next group of podiatrists coming through the network."},
+  {n:"Charlie West",r:"Physiotherapist",p:["Physiotherapy"],loc:["Lindfield","Ryde"],f:["Older adults","Living with a chronic condition"],s:["Balance and falls","Post-surgical rehab"],fund:["Medicare","DVA","Private health"],av:"limited",line:"Charlie helps people rebuild steadiness and confidence after surgery or a fall, so everyday movement feels safe again."}
+];
+
+/* grouped, friendly-labelled shortcuts that map to real filter values */
+const GROUPS=[
+  {title:"Area of practice",cat:"practice",items:PRACTICE.map(v=>({label:v,val:v}))},
+  {title:"Location",cat:"location",items:LOCATIONS.map(v=>({label:v,val:v}))},
+  {title:"Who you are",cat:"focus",items:[
+    {label:"Care for kids and teens",val:"Children and teens"},
+    {label:"Staying steady and independent",val:"Older adults"},
+    {label:"Getting back to sport",val:"Athletes and active people"},
+    {label:"Managing an ongoing condition",val:"Living with a chronic condition"}
+  ]},
+  {title:"Funding",cat:"funding",items:[
+    {label:"Recovering from a work injury",val:"WorkCover"},
+    {label:"Using your NDIS plan",val:"NDIS"},
+    {label:"Using your DVA card",val:"DVA"},
+    {label:"Referred by your GP",val:"Medicare"}
+  ]}
+];
+
+const CAT_LABEL={practice:"Area of practice",location:"Location",focus:"Patient focus",interest:"Special interest",funding:"Funding"};
+const FIELD_KEY={practice:"p",location:"loc",focus:"f",interest:"s",funding:"fund"};
+const AVATAR_COLORS=["#0e5b54","#2a6b8f","#8a5a2b","#6a4b8a","#3a7a52","#a14b4b","#4b6a8a","#7a6a2b","#2b7a6a","#8a4b6a"];
+
+const CHECK=`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>`;
+const CHEV=`<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>`;
+const PIN=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.3-7-11a7 7 0 0114 0c0 4.7-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>`;
+const PROFILE=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>`;
+
+const state={q:"",smart:true,acceptingOnly:true,filters:{practice:new Set(),location:new Set(),focus:new Set(),interest:new Set(),funding:new Set()},sort:"accepting"};
+
+/* build dropdown filters */
+const fWrap=document.getElementById("groups");
+function closeAll(){document.querySelectorAll(".dd.open").forEach(d=>d.classList.remove("open"));}
+GROUPS.forEach(g=>{
+  const dd=document.createElement("div");dd.className="dd";dd.dataset.cat=g.cat;
+  const trig=document.createElement("button");trig.className="dd-trigger";trig.type="button";
+  trig.setAttribute("aria-haspopup","true");trig.setAttribute("aria-expanded","false");
+  trig.innerHTML=`<span class="dd-label">${g.title}</span><span class="dd-count" hidden>0</span>${CHEV}`;
+  const menu=document.createElement("div");menu.className="dd-menu";menu.setAttribute("role","group");
+  menu.addEventListener("click",e=>e.stopPropagation());
+  g.items.forEach(it=>{
+    const o=document.createElement("button");o.type="button";o.className="dd-opt";
+    o.dataset.cat=g.cat;o.dataset.val=it.val;o.setAttribute("aria-pressed","false");
+    o.innerHTML=`<span class="box">${CHECK}</span><span>${it.label}</span>`;
+    o.addEventListener("click",()=>toggle(g.cat,it.val));
+    menu.appendChild(o);
+  });
+  trig.addEventListener("click",e=>{
+    e.stopPropagation();
+    const wasOpen=dd.classList.contains("open");closeAll();
+    if(!wasOpen){dd.classList.add("open");trig.setAttribute("aria-expanded","true");}
+  });
+  dd.appendChild(trig);dd.appendChild(menu);fWrap.appendChild(dd);
+});
+document.addEventListener("click",closeAll);
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeAll();});
+
+/* ---- keyword matching: phrases -> existing filter values ---- */
+const SYNS=[
+  {cat:"practice",val:"Podiatry",t:["podiatr","foot","feet","ankle","heel","bunion","toenail","ingrown","plantar","orthotic","orthoses","lower limb","foot doctor"]},
+  {cat:"practice",val:"Physiotherapy",t:["physio","physiotherap","physical therap"]},
+  {cat:"practice",val:"Exercise Physiology",t:["exercise physiolog","accredited exercise","clinical exercise","aep"]},
+  {cat:"practice",val:"Dietetics",t:["dietit","dietet","dietici","dietary","nutrition"]},
+  {cat:"practice",val:"Psychology",t:["psycholog","psych","mental health","counsel","anxiety","depression"]},
+  {cat:"practice",val:"Chiropractic",t:["chiro","spinal adjust","spine adjust"]},
+  {cat:"practice",val:"Remedial Massage",t:["massage","remedial","myotherap","deep tissue","trigger point"]},
+  {cat:"location",val:"Penrith",t:["penrith","nepean"]},
+  {cat:"location",val:"Ropes Crossing",t:["ropes crossing","ropes"]},
+  {cat:"location",val:"Blaxland",t:["blaxland"]},
+  {cat:"location",val:"Springwood",t:["springwood"]},
+  {cat:"location",val:"Katoomba",t:["katoomba"]},
+  {cat:"location",val:"Ryde",t:["ryde"]},
+  {cat:"location",val:"Lindfield",t:["lindfield","north shore"]},
+  {cat:"funding",val:"Medicare",t:["medicare","bulk bill","gp referral","gp referred","care plan","mental health plan","team care","chronic disease management","epc"]},
+  {cat:"funding",val:"NDIS",t:["ndis","disability plan","disability support"]},
+  {cat:"funding",val:"DVA",t:["dva","veteran","gold card","white card","defence","adf"]},
+  {cat:"funding",val:"WorkCover",t:["workcover","work cover","work injury","workplace injury","injured at work","workers comp","icare","return to work"]},
+  {cat:"funding",val:"Private health",t:["private health","health fund","private patient","health insurance","extras","hicaps"]},
+  {cat:"focus",val:"Children and teens",t:["child","kid","teen","adolescent","paediatric","pediatric","my son","my daughter"]},
+  {cat:"focus",val:"Older adults",t:["older","elderly","senior","aged","pensioner","retired","my mum","my mother","my dad","my father","my nan"]},
+  {cat:"focus",val:"Athletes and active people",t:["athlete","sport","runner","running","gym","marathon","training","active"]},
+  {cat:"focus",val:"Living with a chronic condition",t:["chronic","ongoing condition","long term","diabet","cardiac","heart condition","arthritis","copd"]}
+];
+const LOC_GROUPS=[
+  {t:["blue mountains","the mountains"],vals:["Blaxland","Springwood","Katoomba"],label:"Blue Mountains"},
+  {t:["lower mountains"],vals:["Blaxland","Springwood"],label:"Lower Mountains"},
+  {t:["upper mountains"],vals:["Katoomba"],label:"Upper Mountains"},
+  {t:["western sydney","west sydney"],vals:["Penrith","Ropes Crossing"],label:"Western Sydney"}
+];
+/* word-start match against a space-padded, normalised haystack (no regex needed) */
+function hasTrigger(hay,trig){return hay.includes(" "+trig);}
+function parseQuery(text){
+  const hay=" "+text.toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ")+" ";
+  const out={practice:new Set(),location:new Set(),focus:new Set(),interest:new Set(),funding:new Set()};
+  const labels=[];
+  SYNS.forEach(s=>{if(s.t.some(k=>hasTrigger(hay,k))&&!out[s.cat].has(s.val)){out[s.cat].add(s.val);labels.push(s.val);}});
+  LOC_GROUPS.forEach(g=>{if(g.t.some(k=>hasTrigger(hay,k))){g.vals.forEach(v=>out.location.add(v));labels.push(g.label);}});
+  let accepting;
+  if(hasTrigger(hay,"new patient")||hasTrigger(hay,"accepting new")||hasTrigger(hay,"taking new"))accepting=true;
+  if(hasTrigger(hay,"everyone")||hasTrigger(hay,"all practitioner")||hasTrigger(hay,"show all")||hasTrigger(hay,"whole team"))accepting=false;
+  return {out,labels,accepting};
+}
+function setHint(text,labels){
+  const h=document.getElementById("parsehint");
+  if(text.trim()===""){h.hidden=true;return;}
+  h.hidden=false;
+  h.innerHTML=labels.length?`Read as &nbsp;${labels.map(l=>`<b>${l}</b>`).join(" &middot; ")}`:`No filters matched those words \u2014 try a discipline, suburb, or funding type.`;
+}
+function applySearch(text){
+  if(state.smart){
+    const {out,labels,accepting}=parseQuery(text);
+    Object.keys(state.filters).forEach(cat=>{state.filters[cat]=out[cat];});
+    if(accepting!==undefined){state.acceptingOnly=accepting;document.getElementById("accepting").setAttribute("aria-checked",accepting?"true":"false");}
+    state.q="";setHint(text,labels);
+  }else{
+    state.q=text.toLowerCase();
+    document.getElementById("parsehint").hidden=true;
+  }
+  render();
+}
+const searchEl=document.getElementById("search");
+searchEl.addEventListener("input",e=>applySearch(e.target.value));
+
+const acceptBtn=document.getElementById("accepting");
+acceptBtn.addEventListener("click",()=>{
+  state.acceptingOnly=!state.acceptingOnly;
+  acceptBtn.setAttribute("aria-checked",state.acceptingOnly);
+  render();
+});
+document.getElementById("sortby").addEventListener("change",e=>{state.sort=e.target.value;render();});
+
+function toggle(cat,val){const s=state.filters[cat];s.has(val)?s.delete(val):s.add(val);render();}
+function clearAll(){Object.values(state.filters).forEach(s=>s.clear());render();}
+
+function matches(p){
+  if(state.acceptingOnly&&p.av==="none")return false;
+  if(state.q){const hay=(p.n+" "+p.r+" "+p.s.join(" ")+" "+p.p.join(" ")).toLowerCase();if(!hay.includes(state.q))return false;}
+  for(const cat of Object.keys(state.filters)){
+    const set=state.filters[cat];if(set.size===0)continue;
+    if(![...set].some(v=>p[FIELD_KEY[cat]].includes(v)))return false;
+  }
+  return true;
+}
+const AV_ORDER={accepting:0,limited:1,none:2};
+function sortPeople(list){const s=state.sort;return list.slice().sort((a,b)=>{
+  if(s==="name")return a.n.localeCompare(b.n);
+  if(s==="practice")return a.p[0].localeCompare(b.p[0])||a.n.localeCompare(b.n);
+  if(s==="location")return a.loc[0].localeCompare(b.loc[0])||a.n.localeCompare(b.n);
+  return AV_ORDER[a.av]-AV_ORDER[b.av]||a.n.localeCompare(b.n);});}
+
+const AV_LABEL={accepting:"Accepting new patients",limited:"Limited availability",none:"Not taking new patients"};
+function initials(n){return n.split(" ").slice(0,2).map(w=>w[0]).join("");}
+
+function render(){
+  /* dropdown option states + count badges */
+  document.querySelectorAll(".dd-opt").forEach(o=>{
+    o.setAttribute("aria-pressed",state.filters[o.dataset.cat].has(o.dataset.val)?"true":"false");
+  });
+  document.querySelectorAll(".dd").forEach(dd=>{
+    const n=state.filters[dd.dataset.cat].size;const badge=dd.querySelector(".dd-count");
+    if(n>0){badge.hidden=false;badge.textContent=n;}else{badge.hidden=true;}
+  });
+
+  const af=document.getElementById("activefilters");af.innerHTML="";let total=0;
+  Object.keys(state.filters).forEach(cat=>state.filters[cat].forEach(val=>{
+    total++;const chip=document.createElement("span");chip.className="afchip";
+    chip.innerHTML=`${val}`;const x=document.createElement("button");x.setAttribute("aria-label",`Remove ${val}`);x.textContent="×";
+    x.addEventListener("click",()=>toggle(cat,val));chip.appendChild(x);af.appendChild(chip);
+  }));
+  if(total>0){
+    const lbl=document.createElement("span");lbl.className="aflabel";lbl.textContent="Filtering by:";af.insertBefore(lbl,af.firstChild);
+    const c=document.createElement("button");c.className="clearall";c.textContent="Clear all";c.addEventListener("click",clearAll);af.appendChild(c);
+  }
+
+  const list=sortPeople(PEOPLE.filter(matches));
+  document.getElementById("count").innerHTML=(total>0||state.q||!state.acceptingOnly)
+    ?`Showing ${list.length} practitioner${list.length!==1?"s":""} <span>matching your filters</span>`
+    :`Showing ${list.length} practitioner${list.length!==1?"s":""} <span>accepting new patients</span>`;
+
+  const grid=document.getElementById("grid");grid.innerHTML="";
+  if(list.length===0){
+    grid.innerHTML=`<div class="empty"><h3>No exact match just yet</h3><p>Try removing a filter, or tell us what you need and we will point you to the right person.</p><button id="emptyclear">Clear filters</button></div>`;
+    const eb=document.getElementById("emptyclear");if(eb)eb.addEventListener("click",()=>{clearAll();document.getElementById("accepting").setAttribute("aria-checked","true");state.acceptingOnly=true;document.getElementById("search").value="";state.q="";render();});
+    return;
+  }
+  list.forEach(p=>{
+    const card=document.createElement("article");card.className="card";
+    const color=AVATAR_COLORS[PEOPLE.indexOf(p)%AVATAR_COLORS.length];
+    const locLabel=p.loc.length===1?p.loc[0]:`${p.loc.slice(0,-1).join(", ")} and ${p.loc[p.loc.length-1]}`;
+    card.innerHTML=`
+      <div class="card-top">
+        <div class="avatar" style="background:${color}">${initials(p.n)}</div>
+        <div class="who">
+          <div class="namerow"><h3>${p.n}</h3><button class="profile-btn" aria-label="View ${p.n}'s profile" title="View profile">${PROFILE}</button></div>
+          <div class="rolerow"><span class="role">${p.r}</span><span class="avail ${p.av}">${AV_LABEL[p.av]}</span></div>
+        </div>
+      </div>
+      <p class="line">${p.line}</p>
+      <div class="tags">${p.s.map(t=>`<button class="tag" data-int="${t}">${t}</button>`).join("")}</div>
+      <div class="funding">${p.fund.map(f=>`<span class="fund">${f}</span>`).join("")}</div>
+      <div class="actions">
+        <button class="btn">Book an appointment</button>
+        <p class="bookloc">${PIN}<span>${p.loc.length>1?"Available at ":"At "}${locLabel}</span></p>
+      </div>`;
+    card.querySelectorAll(".tag").forEach(t=>t.addEventListener("click",()=>toggle("interest",t.dataset.int)));
+    grid.appendChild(card);
+  });
+}
+render();
+</script>
+</body>
+</html>
