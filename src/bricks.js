@@ -188,6 +188,18 @@ export function filterTargets(queryId) {
 			return
 		}
 
+		/**
+		 * Sorting and per-page are actions, not filters.
+		 *
+		 * They are always set to something, so there is no cleared state to
+		 * return them to: a chip offering to remove the sort would leave the
+		 * query unordered rather than back at its default, and a typed sentence
+		 * has no business changing the order. Both callers want only filters.
+		 */
+		if ((filter.filterAction || 'filter') !== 'filter') {
+			return
+		}
+
 		if (queryId && filter.targetQueryId !== queryId) {
 			return
 		}

@@ -22,11 +22,17 @@ A custom element name is invisible to all three. Everything unusual in this
 codebase exists to work around that, by **impersonating a native filter element**
 at each integration point.
 
-`element_map()` in `plugin.php` is the single source of truth for which native
-element each Zag element stands in for. Note the mapping is also
+`element_map()` in `inc/element-map.php` is the single source of truth for which
+native element each Zag element stands in for. Note the mapping is also
 **per-instance**: a multi-select impersonates `filter-checkbox` (array values), a
 single select impersonates `filter-select` (scalar values). See
 `Element_Zag_Filter_Select::impersonates()`.
+
+It sits in its own WordPress-free file so `tests/` can require the real map
+rather than keep a copy. **A stale copy fails silently**: a missing entry makes
+the bridge treat the element as native and skip it, which looks like nothing
+happening rather than an error. That is exactly what happened when `zag-sort` was
+added.
 
 **`zag-smart-search` and `zag-active-filters` are the exceptions and need none of
 this.** Neither holds a filter value — one drives the *other* elements' filters,
@@ -89,6 +95,15 @@ The native builders (`build_taxonomy_query_vars` et al, `:2444` onward) are all
 structurally close to the originals so divergence is easy to spot.
 
 All three filter sources are ported: `taxonomy`, `wpField` and `customField`.
+
+**Sorting is gated the same way, and its own hook is unreachable.** `:2104`
+bails on any element that isn't `filter-select`/`filter-radio` and `continue`s —
+*before* `apply_filters('bricks/query_filters/sort_query_vars', …)` two lines
+later. So sorting rides the general hook too, via
+`Query_Filters_Bridge::build_sort_query_vars()`. `get_selected_sort_option()` is
+public, so only the builder is reproduced. `zag-sort` subclasses the select and
+locks the action; see `docs/sorting.md`. `per_page` is gated identically at
+`:2127` and is deliberately left inert.
 
 The native builders branch on `instance_name === 'filter-checkbox'` to pick
 array-vs-scalar semantics. Our name never matches, so every such branch keys off
@@ -366,12 +381,15 @@ If anything below a Zag element ever stops responding to clicks, check
 ## Testing
 
 `php tests/impersonation-test.php` — stubs the Bricks surface, no WP or DB.
-Covers control impersonation, the multi/single mapping, the indexer replay and
-taxonomy query var building.
+Covers control impersonation, the multi/single mapping, the indexer replay, and
+query var building for taxonomy, wpField, customField, dates and sorting.
 
 The `Filter_Element` stub mirrors the name-gated branches of the real
-`filter-base.php`. **A green run against a stale stub proves nothing** — update
-the stub when Bricks changes which controls sit behind which name.
+`filter-base.php`, and the `Query_Filters` stub mirrors
+`get_selected_sort_option()` verbatim — the bridge calls the real one in
+production. **A green run against a stale stub proves nothing** — update the
+stubs when Bricks changes which controls sit behind which name, or how a sort
+value parses.
 
 **The frontend has no tests at all.** The smart search's matching, vocabulary
 and reconciliation are pure functions and would run under `node --test` with no

@@ -35,29 +35,7 @@ function version() {
 	return $version;
 }
 
-/**
- * Element names this plugin registers, mapped to the native Bricks filter
- * element each one impersonates for indexing and query building.
- *
- * Bricks gates its filter pipeline on hardcoded element-name lists in
- * includes/query-filters.php (filter_controls_elements, indexable_elements,
- * dynamic_update_elements). Custom names are invisible to all three, so every
- * integration point needs to know which native element to stand in for.
- *
- * zag-smart-search and zag-active-filters are deliberately absent: they hold no
- * filter value, so they have nothing to index, no query vars to build and no
- * counts to refresh. Every hook in Query_Filters_Bridge keys off this map,
- * which is exactly what keeps them out of all of them.
- *
- * @see Query_Filters_Bridge
- */
-function element_map() {
-	return [
-		'zag-filter-select'     => 'filter-select',
-		'zag-filter-datepicker' => 'filter-datepicker',
-	];
-}
-
+require_once ZAG_PATH . 'inc/element-map.php';
 require_once ZAG_PATH . 'inc/style-controls.php';
 require_once ZAG_PATH . 'inc/query-filters-bridge.php';
 
@@ -89,6 +67,17 @@ add_action(
 			ZAG_PATH . 'inc/elements/filter-datepicker.php',
 			'zag-filter-datepicker',
 			__NAMESPACE__ . '\Element_Zag_Filter_Datepicker'
+		);
+
+		/**
+		 * Must follow the select: Element_Zag_Sort extends it, and
+		 * register_element() requires the file there and then (elements.php:220),
+		 * so the parent has to be declared by the time this line runs.
+		 */
+		\Bricks\Elements::register_element(
+			ZAG_PATH . 'inc/elements/sort.php',
+			'zag-sort',
+			__NAMESPACE__ . '\Element_Zag_Sort'
 		);
 
 		// These two extend \Bricks\Element, not \Bricks\Filter_Element, so they

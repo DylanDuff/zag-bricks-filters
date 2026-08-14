@@ -302,6 +302,18 @@ class Query_Filters_Bridge {
 		$settings      = $filter['settings'] ?? [];
 		$filter_action = $settings['filterAction'] ?? 'filter';
 
+		if ( $filter_action === 'sort' ) {
+			return $this->build_sort_query_vars( $query_vars, $filter, $query_id, $filter_index );
+		}
+
+		/**
+		 * 'per_page' is not handled and is deliberately left inert.
+		 *
+		 * It is gated the same way sorting was (query-filters.php:2127) and would
+		 * need the same treatment. The Action control offers it because we inherit
+		 * filter-select's controls wholesale; nothing in this plugin exposes it as
+		 * a supported mode.
+		 */
 		if ( $filter_action !== 'filter' ) {
 			return $query_vars;
 		}
@@ -369,6 +381,76 @@ class Query_Filters_Bridge {
 		foreach ( $extra as $key => $value ) {
 			\Bricks\Query_Filters::$active_filters[ $query_id ][ $filter_index ][ $key ] = $value;
 		}
+	}
+
+	/**
+	 * Mirror of \Bricks\Query_Filters::build_sort_query_vars() (:2277).
+	 *
+	 * Sorting is gated twice over. generate_query_vars_from_active_filters()
+	 * bails on any element that isn't filter-select or filter-radio
+	 * (query-filters.php:2106) — and because it `continue`s, the dedicated
+	 * `bricks/query_filters/sort_query_vars` hook two lines later is unreachable
+	 * for us. So this rides the same general filter_query_vars hook as the rest.
+	 *
+	 * get_selected_sort_option() is public, so only the builder is reproduced.
+	 * Values arrive as `<key>_<ORDER>`, e.g. `title_ASC` or `selling_price_DESC`.
+	 */
+	private function build_sort_query_vars( $query_vars, $filter, $query_id, $filter_index ) {
+		$settings     = $filter['settings'] ?? [];
+		$sort_options = ! empty( $settings['sortOptions'] ) ? $settings['sortOptions'] : false;
+
+		if ( ! $sort_options ) {
+			return $query_vars;
+		}
+
+		$selected = \Bricks\Query_Filters::get_selected_sort_option( $filter['value'] ?? '', $sort_options );
+
+		if ( ! $selected ) {
+			return $query_vars;
+		}
+
+		$key         = $selected['key'];
+		$order       = $selected['order'];
+		$sort_source = $selected['optionSource'] ?? false;
+
+		if ( ! $sort_source ) {
+			return $query_vars;
+		}
+
+		// Term and user sources carry a prefix the query vars must not include.
+		$sort_source = str_replace( [ 'term|', 'user|' ], '', $sort_source );
+
+		$is_custom_field = in_array( $sort_source, [ 'meta_value', 'meta_value_num' ], true )
+			&& ! empty( $selected['optionMetaKey'] );
+
+		$sort_query = [];
+
+		if ( $is_custom_field ) {
+			$sort_query['meta_key'] = $key;
+		}
+
+		if ( $sort_source === 'meta_value_num' ) {
+			$sort_query['orderby']['meta_value_num'] = $order;
+			$sort_query['meta_type']                 = 'NUMERIC';
+		} else {
+			$sort_query['orderby'][ $key ] = $order;
+		}
+
+		/**
+		 * The native builder also rebuilds this as a string for term queries,
+		 * which WP_Term_Query requires. Not reproduced: it reads
+		 * Query_Filters::$generating_object_type, which is private, and Bricks
+		 * supports post queries only for filtering in this version.
+		 */
+
+		// Sorting replaces any order the query already carried.
+		foreach ( $sort_query as $var => $value ) {
+			$query_vars[ $var ] = $value;
+		}
+
+		$this->record_clause( $query_id, $filter_index, $sort_query, 'sort', [ 'sort_option_info' => $selected ] );
+
+		return $query_vars;
 	}
 
 	/**

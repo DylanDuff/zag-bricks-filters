@@ -50,6 +50,56 @@ namespace Bricks {
 			return new self();
 		}
 
+		/**
+		 * Verbatim mirror of the real method (query-filters.php:2341).
+		 *
+		 * Public there, so the bridge calls it rather than reproducing it — which
+		 * means this stub has to behave identically or the sort tests prove
+		 * nothing. The value is `<key>_<ORDER>`, and the key may itself contain
+		 * underscores, which is why the order is popped off the end.
+		 */
+		public static function get_selected_sort_option( $filter_value, $sort_options ) {
+			$sort_value = explode( '_', $filter_value );
+
+			if ( count( $sort_value ) < 2 ) {
+				return false;
+			} elseif ( count( $sort_value ) > 2 ) {
+				$order = array_pop( $sort_value );
+				$key   = implode( '_', $sort_value );
+			} else {
+				$key   = $sort_value[0];
+				$order = $sort_value[1];
+			}
+
+			if ( ! $key || ! $order ) {
+				return false;
+			}
+
+			$selected_option = array_filter(
+				$sort_options,
+				function ( $option ) use ( $key, $order ) {
+					$db_source  = str_replace( [ 'term|', 'user|' ], '', $option['optionSource'] ?? '' );
+					$db_order   = $option['optionOrder'] ?? 'ASC';
+					$custom_key = isset( $option['optionMetaKey'] ) && in_array( $db_source, [ 'meta_value', 'meta_value_num' ], true )
+						? $option['optionMetaKey']
+						: false;
+
+					return ( $db_source === $key || $custom_key === $key ) && $db_order === $order;
+				}
+			);
+
+			$selected_option = array_shift( $selected_option );
+
+			if ( ! $selected_option ) {
+				return false;
+			}
+
+			$selected_option['key']   = $key;
+			$selected_option['order'] = $order;
+
+			return $selected_option;
+		}
+
 		// Record what names our replay would have handed to Bricks.
 		public function qf_update_post_metadata( $check, $object_id, $meta_key, $meta_value, $prev ) {
 			foreach ( $meta_value as $el ) {
@@ -116,19 +166,14 @@ namespace Bricks {
 	}
 }
 
-// Normally lives in plugin.php, which we don't load here.
-namespace Zag {
-	function element_map() {
-		return [
-			'zag-filter-select'     => 'filter-select',
-			'zag-filter-datepicker' => 'filter-datepicker',
-		];
-	}
-}
 
 namespace {
 
 	$plugin = dirname( __DIR__ );
+
+	// The real map, not a copy: a stale duplicate makes the bridge skip an
+	// element silently, and the tests would still pass.
+	require $plugin . '/inc/element-map.php';
 
 	require $plugin . '/inc/query-filters-bridge.php';
 
@@ -502,6 +547,87 @@ namespace {
 	check( 'an unparseable date is a no-op', $bridge->build_query_vars( [], $makeDate( [], 'not-a-date' ), 'q1', 0 ), [] );
 	check( 'an empty date is a no-op', $bridge->build_query_vars( [], $makeDate( [], '' ), 'q1', 0 ), [] );
 
+	/* ---------------------------------------------------------------------
+	 * Sorting
+	 *
+	 * Bricks skips every element it doesn't recognise before reaching its own
+	 * sort hook (query-filters.php:2106), so the bridge reproduces the builder.
+	 * ------------------------------------------------------------------- */
+
+	$sortOptions = [
+		[ 'optionLabel' => 'Newest', 'optionSource' => 'date', 'optionOrder' => 'DESC' ],
+		[ 'optionLabel' => 'Title', 'optionSource' => 'title', 'optionOrder' => 'ASC' ],
+		[ 'optionLabel' => 'Price', 'optionSource' => 'meta_value_num', 'optionOrder' => 'ASC', 'optionMetaKey' => 'price' ],
+		[ 'optionLabel' => 'Code', 'optionSource' => 'meta_value', 'optionOrder' => 'ASC', 'optionMetaKey' => 'product_code' ],
+	];
+
+	$makeSort = function ( $value, $options = null ) use ( $sortOptions ) {
+		return [
+			'instance_name' => 'zag-sort',
+			'filter_id'     => 'sort1',
+			'value'         => $value,
+			'settings'      => [
+				'filterAction' => 'sort',
+				'sortOptions'  => $options === null ? $sortOptions : $options,
+			],
+		];
+	};
+
+	check(
+		'a post field sort sets orderby',
+		$bridge->build_query_vars( [], $makeSort( 'title_ASC' ), 'q1', 0 ),
+		[ 'orderby' => [ 'title' => 'ASC' ] ]
+	);
+
+	check(
+		'order is taken from the value, not the option',
+		$bridge->build_query_vars( [], $makeSort( 'date_DESC' ), 'q1', 0 ),
+		[ 'orderby' => [ 'date' => 'DESC' ] ]
+	);
+
+	// Numeric meta sorts need the key, the meta_value_num orderby and the type.
+	check(
+		'a numeric custom field sort sets meta_key and NUMERIC',
+		$bridge->build_query_vars( [], $makeSort( 'price_ASC' ), 'q1', 0 ),
+		[ 'meta_key' => 'price', 'orderby' => [ 'meta_value_num' => 'ASC' ], 'meta_type' => 'NUMERIC' ]
+	);
+
+	check(
+		'a text custom field sort orders by the key without a meta_type',
+		$bridge->build_query_vars( [], $makeSort( 'product_code_ASC' ), 'q1', 0 ),
+		[ 'meta_key' => 'product_code', 'orderby' => [ 'product_code' => 'ASC' ] ]
+	);
+
+	// Sorting replaces whatever order the query already carried.
+	check(
+		'sort overrides an existing orderby',
+		$bridge->build_query_vars( [ 'orderby' => [ 'menu_order' => 'ASC' ] ], $makeSort( 'title_ASC' ), 'q1', 0 ),
+		[ 'orderby' => [ 'title' => 'ASC' ] ]
+	);
+
+	// The clause has to be recorded, same as every other builder.
+	Bricks\Query_Filters::$active_filters = [ 'q1' => [ 0 => [] ] ];
+	$bridge->build_query_vars( [], $makeSort( 'title_ASC' ), 'q1', 0 );
+	check( 'sort records its query_type', Bricks\Query_Filters::$active_filters['q1'][0]['query_type'], 'sort' );
+	check(
+		'sort records the selected option',
+		Bricks\Query_Filters::$active_filters['q1'][0]['sort_option_info']['optionLabel'],
+		'Title'
+	);
+
+	check( 'a value matching no option is a no-op', $bridge->build_query_vars( [], $makeSort( 'nope_ASC' ), 'q1', 0 ), [] );
+	check( 'a value with no order is a no-op', $bridge->build_query_vars( [], $makeSort( 'title' ), 'q1', 0 ), [] );
+	check( 'the wrong order for an option is a no-op', $bridge->build_query_vars( [], $makeSort( 'title_DESC' ), 'q1', 0 ), [] );
+	check( 'no sort options configured is a no-op', $bridge->build_query_vars( [], $makeSort( 'title_ASC', [] ), 'q1', 0 ), [] );
+
+	// per_page is offered by the inherited Action control but deliberately unhandled.
+	$perPage = [
+		'instance_name' => 'zag-filter-select',
+		'value'         => '24',
+		'settings'      => [ 'filterAction' => 'per_page' ],
+	];
+	check( 'per_page is left inert', $bridge->build_query_vars( [], $perPage, 'q1', 0 ), [] );
+
 	// A native filter must pass through our hook untouched.
 	$nativeFilter = [
 		'instance_name' => 'filter-select',
@@ -509,6 +635,14 @@ namespace {
 		'settings'      => [ 'filterSource' => 'taxonomy', 'filterTaxonomy' => 't' ],
 	];
 	check( 'native filters pass through untouched', $bridge->build_query_vars( [], $nativeFilter, 'q1', 0 ), [] );
+
+	// And a native sort must too — Bricks handles those itself.
+	$nativeSort = [
+		'instance_name' => 'filter-select',
+		'value'         => 'title_ASC',
+		'settings'      => [ 'filterAction' => 'sort', 'sortOptions' => $sortOptions ],
+	];
+	check( 'native sorts pass through untouched', $bridge->build_query_vars( [], $nativeSort, 'q1', 0 ), [] );
 
 	echo "\n" . ( $failures ? "$failures FAILED\n" : "all checks passed\n" );
 	exit( $failures ? 1 : 0 );
