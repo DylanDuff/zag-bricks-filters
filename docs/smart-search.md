@@ -117,6 +117,48 @@ made by hand in a dropdown. A manual selection therefore stops narrowing the
 moment words are typed. Ownership tracking is not consulted here: it decides
 what the search may *clear*, not what the query means.
 
+### The words are OR'd, not AND'd
+
+`WP_Query::parse_search()` joins its terms with `AND`, so `s` asks for a post
+containing *every* word. On a field built to take a sentence that is fatal:
+
+```
+"penrith in crossing"  →  posts containing penrith AND in AND crossing  →  none
+union = (Penrith posts) ∪ ∅                                             →  Penrith only
+```
+
+which reads as the filters beating the search, when really the keyword half
+returned nothing. So `Keyword_Search` replaces core's clause through
+`posts_search` and matches **any** word against `post_title`, `post_excerpt` and
+`post_content`. `"penrith in crossing"` then returns the Penrith posts *and* the
+Ropes Crossing ones.
+
+The clause is replaced rather than extended because the `AND` is built into how
+core assembles its terms — there is nothing to loosen from outside. It is scoped
+by a `zag_keyword_words` query var rather than by adding and removing the
+filter, so it can never touch a query this plugin doesn't own. Core's
+password-protected-post guard is carried over with it.
+
+**Stopwords matter more here than in a normal search.** One surviving `in` ORs
+in the entire post type. Words under 3 characters go, and so does a small
+stopword list. Both are filterable, and the useful list is site specific — a
+practitioner directory wants `practitioner` in it:
+
+```php
+add_filter( 'zag/keyword_search/stopwords', fn( $words ) => [ ...$words, 'practitioner' ] );
+add_filter( 'zag/keyword_search/min_word_length', fn() => 4 );
+```
+
+A sentence that survives to nothing — `"who are the"` — adds no clause at all,
+rather than one matching everything.
+
+**Long sentences get broad.** `"a podiatrist in penrith who accepts ndis"`
+reduces to `podiatrist`, `penrith`, `accepts`, `ndis` and OR's them, which on a
+large site pulls in a lot. If that becomes a problem, the refinement is to
+search only the words that matched *no* filter option — the ones the filter half
+already covers are redundant in the keyword half — which needs the client to
+send its match set with the term.
+
 ### What it costs
 
 Two extra `fields => 'ids'` queries per request on the target query, unpaged.
@@ -131,6 +173,22 @@ right answer is running both halves as ID-only queries and unioning them into
 `no_found_rows` drops the `SQL_CALC_FOUND_ROWS` pass, which is the expensive
 half, but this is still two unbounded queries. Fine for a directory; think twice
 before switching it on over tens of thousands of posts.
+
+**With no filter active it costs nothing.** That branch only adds query vars —
+the main query does the work — so a page being used as a plain search box runs
+exactly the queries it did before.
+
+**The two queries are per request, not per query build.**
+`bricks/posts/query_vars` fires more than once on a page: every filter element's
+`prepare_sources()` renders `{query_results_count:…}` to force the target query
+to run, and the render runs it again. The union is memoised by query and term so
+the cost stays fixed instead of scaling with how many filters are on the page.
+
+**More requests, though.** Before this setting, a sentence that moved no filter
+issued nothing. Now every debounced change fetches, so the round trips scale with
+typing rather than with matches. `DEBOUNCE_MS` in `src/search.js` is the dial;
+300ms is tuned for the no-op case and is aggressive for one that runs two
+unbounded queries.
 
 ### Which query it searches
 
@@ -188,6 +246,16 @@ issues a single AJAX round trip. See `driveFilters()` in `src/bricks.js`.
 
 **Typing is debounced 300ms.** Enter applies immediately; Escape clears the
 field and applies.
+
+**A response never overwrites what is in the field.** With the keyword pass on,
+every debounced change fetches, so a response routinely lands while the visitor
+is still typing — and writing its sentence back into the input would delete
+whatever they added in the meantime, which reads as the field fighting them.
+The input wins whenever it disagrees with the URL the element last wrote, since
+only typing can put those out of step. Comparing against the URL alone cannot
+tell the cases apart: Bricks rebuilds the query string from its own filter
+params on every response, so the parameter is routinely missing at that moment
+for reasons that have nothing to do with the visitor.
 
 **The sentence survives a reload.** It is kept in the URL (`?zag-search=…`) and
 re-rendered into the field server-side, so a shared or bookmarked link restores

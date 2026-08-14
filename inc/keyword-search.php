@@ -36,6 +36,39 @@ class Keyword_Search {
 	const NON_CONSTRAINING = [ 'sort', 'per_page', 'pagination' ];
 
 	/**
+	 * Query var carrying the words to match, and the marker that scopes the
+	 * search clause below to our own queries.
+	 *
+	 * WP_Query keeps unrecognised vars, so this rides along to posts_search
+	 * without a property to keep in sync with whichever query is running.
+	 */
+	const WORDS_VAR = 'zag_keyword_words';
+
+	/**
+	 * Shorter than this and a word matches too much to be worth OR-ing.
+	 *
+	 * Catches "in", "a", "of" without needing them enumerated, which is most of
+	 * what makes a typed sentence unusable as an OR.
+	 */
+	const MIN_WORD_LENGTH = 3;
+
+	/**
+	 * Words dropped before matching.
+	 *
+	 * Only the ones long enough to survive MIN_WORD_LENGTH — this list exists to
+	 * catch what that rule misses, not to repeat it. Filterable, because the
+	 * useful list is site specific: a directory of practitioners wants
+	 * "practitioner" in here, and nothing generic can know that.
+	 */
+	const STOPWORDS = [
+		'the', 'and', 'for', 'with', 'who', 'you', 'your', 'are', 'was', 'from',
+		'that', 'this', 'has', 'have', 'its', 'not', 'but', 'can', 'all', 'any',
+		'near', 'about', 'into', 'they', 'their', 'them', 'there', 'these',
+		'those', 'what', 'when', 'where', 'which', 'will', 'would', 'some',
+		'like', 'need', 'want', 'looking', 'find', 'please',
+	];
+
+	/**
 	 * Elements of the page being rendered, flattened across all three areas.
 	 *
 	 * Scanned once per request: every query loop on the page runs this class,
@@ -45,6 +78,17 @@ class Keyword_Search {
 
 	/** Query IDs targeted by a Zag filter element on this page. */
 	private $filtered_query_ids = null;
+
+	/**
+	 * Unions already computed this request, keyed by query and term.
+	 *
+	 * bricks/posts/query_vars is not fired once per page. Every filter element
+	 * calls prepare_sources(), which renders {query_results_count:…} to force
+	 * the target query to run, and the render itself runs it again. Without
+	 * this the two ID queries would be paid on each of those, turning a fixed
+	 * cost into one that scales with how many filters are on the page.
+	 */
+	private $unions = [];
 
 	public function __construct() {
 		/**
@@ -56,6 +100,86 @@ class Keyword_Search {
 		 * to know what the filters resolved to, so it goes after that.
 		 */
 		add_filter( 'bricks/posts/query_vars', [ $this, 'apply' ], 1000, 3 );
+
+		/**
+		 * Registered once and scoped by WORDS_VAR rather than added and removed
+		 * around each sub-query: the plain-`s` branch does not run a query of
+		 * its own, it hands vars back to Bricks and the search happens later.
+		 */
+		add_filter( 'posts_search', [ $this, 'or_search_clause' ], 10, 2 );
+	}
+
+	/**
+	 * Match any of the typed words rather than all of them.
+	 *
+	 * WP_Query::parse_search() joins its terms with AND, so "penrith in
+	 * crossing" asks for a post containing all three. Nothing does, the union's
+	 * keyword half comes back empty, and the filters look like they beat the
+	 * search outright — which is what a sentence-shaped field does to the
+	 * default behaviour every time it holds more than one word.
+	 *
+	 * Core's clause is replaced rather than extended: the AND is built into how
+	 * it assembles the terms, so there is nothing to loosen from outside.
+	 */
+	public function or_search_clause( $search, $query ) {
+		$words = $query->get( self::WORDS_VAR );
+
+		if ( empty( $words ) || ! is_array( $words ) ) {
+			return $search;
+		}
+
+		global $wpdb;
+
+		$clauses = [];
+
+		foreach ( $words as $word ) {
+			$like = '%' . $wpdb->esc_like( $word ) . '%';
+
+			$clauses[] = $wpdb->prepare(
+				"({$wpdb->posts}.post_title LIKE %s) OR ({$wpdb->posts}.post_excerpt LIKE %s) OR ({$wpdb->posts}.post_content LIKE %s)",
+				$like,
+				$like,
+				$like
+			);
+		}
+
+		$clause = ' AND (' . implode( ' OR ', $clauses ) . ') ';
+
+		// Carried over from core, which appends it after its own terms.
+		if ( ! is_user_logged_in() ) {
+			$clause .= " AND ({$wpdb->posts}.post_password = '') ";
+		}
+
+		return $clause;
+	}
+
+	/**
+	 * The words worth matching in a typed sentence.
+	 *
+	 * OR-ing every word turns a sentence into a match-anything query — one
+	 * "in" and the keyword half returns the whole post type — so the words that
+	 * carry no meaning have to go before the OR, not after.
+	 *
+	 * @return array Lowercased, deduplicated, in the order typed.
+	 */
+	public static function search_words( $term ) {
+		$words     = preg_split( '/[^\p{L}\p{N}]+/u', (string) $term, -1, PREG_SPLIT_NO_EMPTY );
+		$stopwords = apply_filters( 'zag/keyword_search/stopwords', self::STOPWORDS );
+		$minimum   = apply_filters( 'zag/keyword_search/min_word_length', self::MIN_WORD_LENGTH );
+		$kept      = [];
+
+		foreach ( (array) $words as $word ) {
+			$word = function_exists( 'mb_strtolower' ) ? mb_strtolower( $word ) : strtolower( $word );
+
+			if ( mb_strlen( $word ) < $minimum || in_array( $word, (array) $stopwords, true ) ) {
+				continue;
+			}
+
+			// Keyed to dedupe, so "penrith penrith" is one clause not two.
+			$kept[ $word ] = $word;
+		}
+
+		return array_values( $kept );
 	}
 
 	/**
@@ -76,9 +200,11 @@ class Keyword_Search {
 			return $query_vars;
 		}
 
-		$term = $this->term( $search );
+		$term  = $this->term( $search );
+		$words = self::search_words( $term );
 
-		if ( $term === '' ) {
+		// Nothing but stopwords and initials: no query to add.
+		if ( $term === '' || ! $words ) {
 			return $query_vars;
 		}
 
@@ -117,9 +243,7 @@ class Keyword_Search {
 		 * behaves like an ordinary search box.
 		 */
 		if ( ! self::has_constraining_filters( $element_id ) ) {
-			$query_vars['s'] = $term;
-
-			return $query_vars;
+			return array_merge( $query_vars, $this->search_vars( $term, $words ) );
 		}
 
 		/**
@@ -132,14 +256,20 @@ class Keyword_Search {
 		 */
 		$base = \Bricks\Query_Filters::$query_vars_before_merge[ $element_id ] ?? $query_vars;
 
-		$union = array_unique(
-			array_merge(
-				$this->collect_ids( $query_vars ),
-				$this->collect_ids( array_merge( $base, [ 's' => $term ] ) )
-			)
-		);
+		$cache_key = $element_id . '|' . $term;
 
-		return self::union_query_vars( $base, $query_vars, array_values( $union ) );
+		if ( ! isset( $this->unions[ $cache_key ] ) ) {
+			$this->unions[ $cache_key ] = array_values(
+				array_unique(
+					array_merge(
+						$this->collect_ids( $query_vars ),
+						$this->collect_ids( array_merge( $base, $this->search_vars( $term, $words ) ) )
+					)
+				)
+			);
+		}
+
+		return self::union_query_vars( $base, $query_vars, $this->unions[ $cache_key ] );
 	}
 
 	/**
@@ -193,6 +323,21 @@ class Keyword_Search {
 		$vars['post__in'] = $union ? $union : [ 0 ];
 
 		return $vars;
+	}
+
+	/**
+	 * The query vars that turn a sentence into a search.
+	 *
+	 * `s` still has to be set — WP_Query only runs parse_search(), and so only
+	 * reaches the posts_search filter, when it is — but what it holds no longer
+	 * decides anything. WORDS_VAR does, and its presence is what scopes
+	 * or_search_clause() to the queries this class owns.
+	 */
+	private function search_vars( $term, $words ) {
+		return [
+			's'             => $term,
+			self::WORDS_VAR => $words,
+		];
 	}
 
 	/**

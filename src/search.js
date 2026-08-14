@@ -265,6 +265,9 @@ function syncUrl(instance) {
 		url.searchParams.delete(instance.config.param)
 	}
 
+	// What the URL holds because we put it there, as opposed to a back/forward.
+	instance.urlText = text
+
 	if (url.href !== window.location.href) {
 		window.history.replaceState(window.history.state, '', url)
 	}
@@ -347,6 +350,7 @@ function run(instance) {
  */
 function adopt(instance, text) {
 	instance.input.value = text
+	instance.urlText = text.trim()
 
 	const targets = matchableTargets(instance)
 	const wanted = parse(text, targets, instance.config.synonyms)
@@ -386,6 +390,8 @@ export function mountSearch(root) {
 		owned: new Map(),
 		/** The sentence the server was last asked to search for. */
 		searched: '',
+		/** The sentence we last wrote to the URL. @see syncUrl */
+		urlText: '',
 		timer: null
 	}
 
@@ -440,7 +446,22 @@ onFiltersSettled(() => {
 	searchInstances.forEach((instance) => {
 		const fromUrl = urlValue(instance)
 
-		if (fromUrl === instance.input.value) {
+		/**
+		 * The field wins whenever it disagrees with the URL we last wrote,
+		 * because the only thing that can put it out of step is someone typing.
+		 *
+		 * With the keyword pass on, every debounced change fetches — not just
+		 * the ones that move a filter — so a response routinely lands while the
+		 * visitor is still typing. Writing the response's sentence back into
+		 * the input then deletes whatever they added in the meantime, which
+		 * feels like the field fighting them rather than like a stale render.
+		 *
+		 * Comparing against the URL alone cannot tell the two apart: Bricks
+		 * rebuilds the query string from its own filter params on every
+		 * response, so the parameter is routinely missing at this point for
+		 * reasons that have nothing to do with the visitor.
+		 */
+		if (fromUrl === instance.input.value || instance.input.value.trim() !== instance.urlText) {
 			// Ours was the change: put the parameter back after Bricks' rewrite.
 			syncUrl(instance)
 
@@ -465,6 +486,9 @@ window.addEventListener('popstate', () => {
 		 */
 		if (fromUrl !== instance.input.value) {
 			instance.input.value = fromUrl
+
+			// Keep the authority check above in step: this is the URL winning.
+			instance.urlText = fromUrl.trim()
 		}
 	})
 })

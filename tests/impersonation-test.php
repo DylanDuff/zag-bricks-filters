@@ -701,6 +701,35 @@ namespace {
 	$empty = Zag\Keyword_Search::union_query_vars( $base, $merged, [] );
 	check( 'an empty union matches nothing, not everything', $empty['post__in'], [ 0 ] );
 
+	// --- 8. Keyword search: which words are worth OR-ing --------------------
+	//
+	// The whole feature turns on this. WP ANDs its search terms, so a sentence
+	// matches nothing and the union's keyword half is always empty; OR-ing the
+	// words fixes that, but one surviving stopword ORs in the entire post type.
+	check(
+		'a sentence keeps only its meaningful words',
+		Zag\Keyword_Search::search_words( 'penrith in crossing' ),
+		[ 'penrith', 'crossing' ]
+	);
+
+	check(
+		'stopwords and short words are dropped',
+		Zag\Keyword_Search::search_words( 'a podiatrist in penrith who accepts ndis' ),
+		[ 'podiatrist', 'penrith', 'accepts', 'ndis' ]
+	);
+
+	check( 'case is normalised', Zag\Keyword_Search::search_words( 'Ropes CROSSING' ), [ 'ropes', 'crossing' ] );
+
+	// Two clauses for one word is just a slower query with the same answer.
+	check( 'repeats are deduplicated', Zag\Keyword_Search::search_words( 'penrith penrith' ), [ 'penrith' ] );
+
+	// Punctuation splits, so a typed sentence needs no cleaning first.
+	check( "punctuation is a separator", Zag\Keyword_Search::search_words( "o'brien, penrith." ), [ 'brien', 'penrith' ] );
+
+	// Nothing searchable must mean no query, not a query matching everything.
+	check( 'a sentence of stopwords yields nothing', Zag\Keyword_Search::search_words( 'who are the' ), [] );
+	check( 'an empty term yields nothing', Zag\Keyword_Search::search_words( '' ), [] );
+
 	echo "\n" . ( $failures ? "$failures FAILED\n" : "all checks passed\n" );
 	exit( $failures ? 1 : 0 );
 }
