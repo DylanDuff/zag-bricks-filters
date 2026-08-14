@@ -176,6 +176,7 @@ namespace {
 	require $plugin . '/inc/element-map.php';
 
 	require $plugin . '/inc/query-filters-bridge.php';
+	require $plugin . '/inc/keyword-search.php';
 
 	// The element file expects the Bricks parent to exist, which it now does.
 	require $plugin . '/inc/elements/filter-select.php';
@@ -643,6 +644,62 @@ namespace {
 		'settings'      => [ 'filterAction' => 'sort', 'sortOptions' => $sortOptions ],
 	];
 	check( 'native sorts pass through untouched', $bridge->build_query_vars( [], $nativeSort, 'q1', 0 ), [] );
+
+	// --- 6. Keyword search: is there anything to OR against? ---------------
+	//
+	// The answer decides between a union and a plain `s`, and getting it wrong
+	// is invisible: a wrong "yes" returns every post, a wrong "no" quietly drops
+	// the filters. Both read as the search being broken.
+	Bricks\Query_Filters::$active_filters = [
+		'q1' => [ [ 'query_type' => 'sort' ], [ 'query_type' => 'per_page' ] ],
+	];
+	check( 'sort and per_page alone do not constrain', Zag\Keyword_Search::has_constraining_filters( 'q1' ), false );
+
+	Bricks\Query_Filters::$active_filters['q1'][] = [ 'query_type' => 'tax_query' ];
+	check( 'a taxonomy clause constrains', Zag\Keyword_Search::has_constraining_filters( 'q1' ), true );
+
+	// A filter left empty never gets a clause, so it must not count as one.
+	Bricks\Query_Filters::$active_filters = [ 'q1' => [ [ 'filter_id' => 'abc' ] ] ];
+	check( 'a filter with no clause does not constrain', Zag\Keyword_Search::has_constraining_filters( 'q1' ), false );
+
+	check( 'an untouched query does not constrain', Zag\Keyword_Search::has_constraining_filters( 'nope' ), false );
+
+	// --- 7. Keyword search: rebuilding the query around the union ----------
+	$base = [
+		'post_type'      => 'practitioner',
+		'posts_per_page' => 10,
+		'meta_query'     => [ [ 'key' => 'listed', 'value' => '1' ] ],
+	];
+
+	$merged = array_merge(
+		$base,
+		[
+			'tax_query' => [ [ 'taxonomy' => 'discipline', 'terms' => 'podiatry' ] ],
+			'orderby'   => [ 'title' => 'ASC' ],
+			'paged'     => 3,
+		]
+	);
+
+	$union = Zag\Keyword_Search::union_query_vars( $base, $merged, [ 12, 34 ] );
+
+	// post__in already carries what the filters resolved to. Re-applying their
+	// clauses would AND the halves back together and lose every post matched by
+	// the words alone — the whole point of the feature.
+	check( 'the filters\' own clauses are dropped', isset( $union['tax_query'] ), false );
+
+	// The query element's own constraints are not filters and must survive.
+	check( 'the base query is kept', $union['post_type'], 'practitioner' );
+	check( 'a base meta_query is kept', $union['meta_query'], [ [ 'key' => 'listed', 'value' => '1' ] ] );
+
+	// Sorting and paging shape the page, they do not decide what is on it.
+	check( 'a sort filter\'s ordering survives', $union['orderby'], [ 'title' => 'ASC' ] );
+	check( 'paging survives', $union['paged'], 3 );
+
+	check( 'the union lands in post__in', $union['post__in'], [ 12, 34 ] );
+
+	// [] is ignored by WP_Query, which would hand back the entire post type.
+	$empty = Zag\Keyword_Search::union_query_vars( $base, $merged, [] );
+	check( 'an empty union matches nothing, not everything', $empty['post__in'], [ 0 ] );
 
 	echo "\n" . ( $failures ? "$failures FAILED\n" : "all checks passed\n" );
 	exit( $failures ? 1 : 0 );

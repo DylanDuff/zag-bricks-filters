@@ -123,6 +123,30 @@ class Element_Zag_Smart_Search extends \Bricks\Element {
 			'desc'             => esc_html__( 'Leave empty to drive every Zag filter on the page.', 'zag' ),
 		];
 
+		/**
+		 * Opt-in: also match the raw sentence against post content.
+		 *
+		 * Negative-by-omission, per the repeater convention: unset leaves the
+		 * element as a pure controller, which is what it has always been.
+		 *
+		 * The text becomes a query condition of its own here, which is a
+		 * different thing entirely from setting sibling filters — see
+		 * Keyword_Search for the OR semantics and what they cost.
+		 */
+		$this->controls['zagKeyword'] = [
+			'group' => 'zagFunction',
+			'type'  => 'checkbox',
+			'label' => esc_html__( 'Also search post content', 'zag' ),
+			'desc'  => esc_html__( 'Results become anything matching the active filters OR the typed words, so a name or phrase no filter covers still finds its post. Costs two extra queries per request.', 'zag' ),
+		];
+
+		$this->controls['zagKeywordInfo'] = [
+			'group'    => 'zagFunction',
+			'type'     => 'info',
+			'content'  => esc_html__( 'Set "Limit to query" above when the page has no Zag filters for the search to read — without either, there is no query to search.', 'zag' ),
+			'required' => [ 'zagKeyword', '!=', '' ],
+		];
+
 		$this->controls['zagIcon'] = [
 			'group'    => 'zagFunction',
 			'type'     => 'icon',
@@ -230,16 +254,27 @@ class Element_Zag_Smart_Search extends \Bricks\Element {
 	}
 
 	/**
-	 * The URL parameter this instance reads and writes.
+	 * The URL parameter a given set of settings reads and writes.
 	 *
 	 * sanitize_key so whatever an editor types is a usable query key.
+	 *
+	 * Static and settings-driven because the keyword pass has to resolve the
+	 * same parameter from page data, with no element instance in hand. Two
+	 * copies of this would diverge the moment the default changed, and the
+	 * symptom — a search that filters nothing — gives no hint why.
+	 *
+	 * @see Keyword_Search::term()
 	 */
-	private function get_param() {
-		$param = ! empty( $this->settings['zagParam'] )
-			? sanitize_key( $this->settings['zagParam'] )
+	public static function param_from_settings( $settings ) {
+		$param = ! empty( $settings['zagParam'] )
+			? sanitize_key( $settings['zagParam'] )
 			: '';
 
 		return $param !== '' ? $param : self::DEFAULT_PARAM;
+	}
+
+	private function get_param() {
+		return self::param_from_settings( $this->settings );
 	}
 
 	/**
@@ -326,6 +361,14 @@ class Element_Zag_Smart_Search extends \Bricks\Element {
 			'hintPrefix' => $hint_prefix,
 			'hintEmpty'  => $hint_empty,
 			'synonyms'   => $this->get_synonyms(),
+
+			/**
+			 * The text now changes the results by itself, not only through the
+			 * filters it sets. search.js needs to know, because a sentence that
+			 * matches no option label produces no filter change and would
+			 * otherwise never trigger a request.
+			 */
+			'keyword'    => ! empty( $settings['zagKeyword'] ),
 		];
 
 		$input_id = "zag-search-{$this->id}";

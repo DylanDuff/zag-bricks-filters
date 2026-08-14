@@ -38,8 +38,15 @@ function version() {
 require_once ZAG_PATH . 'inc/element-map.php';
 require_once ZAG_PATH . 'inc/style-controls.php';
 require_once ZAG_PATH . 'inc/query-filters-bridge.php';
+require_once ZAG_PATH . 'inc/keyword-search.php';
 
 new Query_Filters_Bridge();
+
+/**
+ * Must follow the bridge: it reads the filter request the bridge captures.
+ * Inert unless a smart search on the page opts into keyword matching.
+ */
+new Keyword_Search();
 
 /**
  * Register elements on `init` priority 20.

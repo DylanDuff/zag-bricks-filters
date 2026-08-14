@@ -24,15 +24,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Query_Filters_Bridge {
 
 	/**
-	 * selectedFilters from the current filter AJAX request, if any.
+	 * The current filter AJAX request's payload, if there is one.
 	 *
-	 * @see capture_rest_filters()
+	 * Null on a page load, which is what tells the readers below apart: an
+	 * absent key in a request that exists means "cleared", while no request at
+	 * all means "look at the URL".
+	 *
+	 * @see capture_rest_request()
 	 */
-	private static $rest_selected_filters = null;
+	private static $rest_params = null;
 
 	public function __construct() {
 		// Stash the raw multi-select values before Bricks flattens them.
-		add_filter( 'rest_request_before_callbacks', [ $this, 'capture_rest_filters' ], 10, 3 );
+		add_filter( 'rest_request_before_callbacks', [ $this, 'capture_rest_request' ], 10, 3 );
 
 		/**
 		 * Index injection.
@@ -203,23 +207,53 @@ class Query_Filters_Bridge {
 	}
 
 	/**
-	 * Keep a copy of the request's selectedFilters payload.
+	 * Keep a copy of the filter request's payload, untouched.
 	 *
-	 * Query_Filters::sanitize_filter_value() (:1979) coerces a filter's value by
+	 * Query_Filters::sanitize_filter_value() coerces a filter's value by
 	 * switching on the element name. Our name matches no case, so multi-select
 	 * arrays hit the `default` branch and get collapsed with reset() — first
 	 * value kept, the rest silently dropped. The collapse happens inside
 	 * set_active_filters(), which offers no hook, so the only way back to the
-	 * full value is the untouched request.
+	 * full value is the request as it arrived.
+	 *
+	 * The whole payload is kept rather than just selectedFilters, because the
+	 * smart search's keyword pass needs urlParams from the same request and has
+	 * no business registering a second subscriber to read it.
+	 *
+	 * @see Keyword_Search::term()
 	 */
-	public function capture_rest_filters( $response, $handler, $request ) {
-		$params = is_object( $request ) ? $request->get_json_params() : null;
+	public function capture_rest_request( $response, $handler, $request ) {
+		if ( ! is_object( $request ) || $request->get_route() !== '/bricks/v1/query_result' ) {
+			return $response;
+		}
 
-		if ( is_array( $params ) && isset( $params['selectedFilters'] ) && is_array( $params['selectedFilters'] ) ) {
-			self::$rest_selected_filters = $params['selectedFilters'];
+		$params = $request->get_json_params();
+
+		if ( is_array( $params ) ) {
+			self::$rest_params = $params;
 		}
 
 		return $response;
+	}
+
+	/** Whether this request is a Bricks filter round trip rather than a page load. */
+	public static function is_filter_request() {
+		return self::$rest_params !== null;
+	}
+
+	/**
+	 * The page's query string as the filter request reported it.
+	 *
+	 * Bricks sends this as `urlParams` (@since 2.3.8). Null when the key is
+	 * absent — an older Bricks, or no request at all — which callers must tell
+	 * apart from an empty array, meaning a page with no parameters.
+	 *
+	 * @return array|null
+	 */
+	public static function rest_url_params() {
+		$params = self::$rest_params['urlParams'] ?? null;
+
+		return is_array( $params ) ? $params : null;
 	}
 
 	/**
@@ -232,10 +266,11 @@ class Query_Filters_Bridge {
 	 * @return array|null Sanitised values, or null if absent.
 	 */
 	public static function recover_multi_value( $filter_id, $settings = [] ) {
-		$raw = null;
+		$raw      = null;
+		$selected = self::$rest_params['selectedFilters'] ?? null;
 
-		if ( is_array( self::$rest_selected_filters ) && isset( self::$rest_selected_filters[ $filter_id ] ) ) {
-			$raw = self::$rest_selected_filters[ $filter_id ];
+		if ( is_array( $selected ) && isset( $selected[ $filter_id ] ) ) {
+			$raw = $selected[ $filter_id ];
 		} else {
 			$nice_name = $settings['filterNiceName'] ?? '';
 			$key       = $nice_name !== '' ? $nice_name : 'brx_' . $filter_id;

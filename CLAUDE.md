@@ -3,9 +3,12 @@
 Bricks query filter elements whose UI is driven by [Zag.js](https://zagjs.com)
 state machines instead of native form controls.
 
-Built against **Bricks 2.1.4**. Line references below point into
-`wp-content/themes/bricks/` and are the first thing to re-check after a Bricks
-update.
+Line references below point into `wp-content/themes/bricks/` and are the first
+thing to re-check after a Bricks update.
+
+**They were taken against Bricks 2.1.4 and have drifted** — on 2.4-beta2
+`filter_controls_elements()` is at `:862`, not `:707`. Trust the function names,
+verify the numbers. The described behaviour has held across both.
 
 ## The central problem
 
@@ -42,6 +45,10 @@ which is what keeps them out of every hook in `Query_Filters_Bridge`. Both exten
 Bricks never DOM-replaces them after a response, so the search input keeps focus
 and caret while results update. See `docs/smart-search.md` and
 `docs/active-filters.md`.
+
+The smart search's opt-in keyword pass does not change that. It adds query vars
+from a hook of its own (`Keyword_Search`, below); the element still registers no
+filter and holds no value.
 
 Both are **client-rendered on purpose**. Bricks' own active filters element is
 the cautionary example: it gates one-chip-per-value on
@@ -355,6 +362,81 @@ session.
 If anything below a Zag element ever stops responding to clicks, check
 `document.elementFromPoint()` over it before suspecting filter state.
 
+## Keyword search — the one place this plugin writes a query
+
+`inc/keyword-search.php`, behind the smart search's **Also search post content**
+setting. Off, nothing in this file runs. On, the typed sentence stops being only
+a lookup key for sibling filters and becomes a query condition, and the results
+are the union of the two:
+
+```
+posts matching the active filters  ∪  posts matching the typed words
+```
+
+**The union has to be computed, not expressed.** Taxonomy and custom field
+filters compile to `INNER JOIN`s, so `OR ID IN (…)` in the `WHERE` cannot rescue
+a row the join already dropped. Two `fields => 'ids'` queries and a `post__in` is
+the only shape that answers correctly — and the reason this is an opt-in setting
+rather than the default.
+
+Hooks `bricks/posts/query_vars` at **priority 1000**, one past the merge both
+Bricks paths register at 999 (`query-filters.php` for page loads, `api.php` for
+filter requests) and comment must come last. Running after it is what makes
+`Query_Filters::$query_vars_before_merge[$query_id]` — the query element's own
+vars, before any filter — available to rebuild from. Rebuilding from the merged
+set instead would AND the filters back in and lose everything matched by words
+alone.
+
+Two rules that are decisions, not fallout:
+
+- **Nothing constraining the query ⇒ plain `s`.** A union against an
+  unconstrained filter set is every post. `has_constraining_filters()` reads
+  `query_type` off `$active_filters` and treats `sort`, `per_page` and
+  `pagination` as narrowing nothing; a filter left empty never gets a
+  `query_type` at all.
+- **Everything active sits on the left of the OR**, hand-picked values included.
+  Ownership tracking decides what the search may *clear*, not what the query
+  means.
+
+**The term travels by URL, because the element has no other channel.** It is not
+a filter, so nothing of it rides in `selectedFilters`. On a page load that is
+`$_GET`; on a filter request it is the request's `urlParams` (Bricks 2.3.8+),
+which is why `syncUrl()` runs before any fetch in `run()`. Older Bricks falls
+back to the referrer, which `replaceState` keeps current.
+
+**A sentence matching no option label must still fetch.** It changes no filter,
+so `driveFilters()` never fires and nothing would refresh. `run()` tracks the
+last sentence searched for and calls `fetchQueries()` for the queries
+`driveFilters()` did not cover.
+
+Element discovery is a page-data scan (`page_elements()`), because the settings
+live on a sibling element the query knows nothing about. It does not walk
+component instances, so a smart search built into a component is not found.
+
+### Gotcha: anything added here must be kept out of `data-original-query-vars`
+
+`base.php:4246` renders that attribute from
+`Query_Filters::$query_vars_before_merge`, and the frontend treats an empty one
+as "unknown" and falls back to `data-query-vars` — the **final** vars, ours
+included (`frontend.js:13311`). Whatever it lands on is posted back as
+`originalQueryVars` on every later request, where
+`restore_original_query_vars_from_frontend()` reinstates it.
+
+Bricks only populates `$query_vars_before_merge` from its own merge callback,
+and `add_active_filters_query_vars()` does not register one when no filter is
+active. A page loaded on `?zag-search=…` alone therefore shipped the keyword
+clause back as the query's *original* state and replayed it forever: **the
+search could not be cleared**. So `apply()` writes the property itself before
+touching anything, which is exactly what it means.
+
+The tell is that it only reproduces from a **refresh** with the term already in
+the URL. Typing into a freshly loaded page is fine, because the AJAX path in
+`api.php` registers that callback unconditionally and gets it right by itself —
+which reads as a clearing bug rather than a page-render one.
+
+Any future hook that adds query vars past priority 999 inherits this. Check the
+attribute before assuming a stuck filter is a JS problem.
+
 ## Known limitations
 
 - **The date picker is date-only, by design.** The query layer fully supports
@@ -377,12 +459,19 @@ If anything below a Zag element ever stops responding to clicks, check
 - **Smart search vocabulary is per element instance.** Two search elements on
   two pages don't share a synonym table. If one table ever needs to serve a
   whole site, move it behind a filter hook rather than duplicating rows.
+- **Keyword search costs two unbounded ID queries per request**, and option
+  counts don't reflect the union — they still describe the filtered half only,
+  because `set_options_with_count()` reads the active filters, which the union
+  never touches. Fine for a directory; think before enabling it over tens of
+  thousands of posts.
 
 ## Testing
 
 `php tests/impersonation-test.php` — stubs the Bricks surface, no WP or DB.
-Covers control impersonation, the multi/single mapping, the indexer replay, and
-query var building for taxonomy, wpField, customField, dates and sorting.
+Covers control impersonation, the multi/single mapping, the indexer replay,
+query var building for taxonomy, wpField, customField, dates and sorting, and
+the keyword search's two pure decisions (union vs. plain `s`, and which query
+vars survive the rebuild around `post__in`).
 
 The `Filter_Element` stub mirrors the name-gated branches of the real
 `filter-base.php`, and the `Query_Filters` stub mirrors

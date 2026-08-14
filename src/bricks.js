@@ -155,7 +155,31 @@ export function applyFilters(changes) {
 		queryIds.add(queryId)
 	})
 
-	queryIds.forEach((queryId) => window.bricksUtils.fetchFilterResults(queryId))
+	fetchQueries(queryIds)
+
+	return queryIds
+}
+
+/**
+ * Re-run queries without changing any filter value.
+ *
+ * Filtering normally implies a value changed, so this exists for the one case
+ * where it hasn't: the smart search's keyword pass puts what was typed in the
+ * URL and lets the server read it there, so a sentence matching no option label
+ * still changes the results while every filter on the page stays exactly as it
+ * was. Nothing in Bricks' own runtime would issue that request.
+ *
+ * Guarded on the query loop being registered, the same way applyFilters is —
+ * fetchFilterResults throws on an unknown id.
+ */
+export function fetchQueries(queryIds) {
+	queryIds.forEach((queryId) => {
+		if (!window.bricksData?.queryLoopInstances?.[queryId]) {
+			return
+		}
+
+		window.bricksUtils.fetchFilterResults(queryId)
+	})
 }
 
 /** Single-filter case: what an element does when its own value changes. */
@@ -225,9 +249,12 @@ export function filterTargets(queryId) {
  * Set several filters at once from outside the elements that own them.
  *
  * `plan` is a list of { target, values }, where values are option values.
+ *
+ * Returns the queries it actually fetched, so a caller that has its own reason
+ * to refresh a query can tell which ones are already covered.
  */
 export function driveFilters(plan) {
-	applyFilters(plan.map(({ target, values }) => ({ filter: target.filter, value: target.shape(values) })))
+	const fetched = applyFilters(plan.map(({ target, values }) => ({ filter: target.filter, value: target.shape(values) })))
 
 	/**
 	 * Repaint after applying, never before.
@@ -240,6 +267,8 @@ export function driveFilters(plan) {
 	 * same ordering resync() depends on.
 	 */
 	plan.forEach(({ target, values }) => target.repaint(values))
+
+	return fetched
 }
 
 /**

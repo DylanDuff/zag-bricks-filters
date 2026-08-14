@@ -13,7 +13,7 @@
  * @see inc/elements/smart-search.php
  */
 
-import { filterTargets, driveFilters, isSameValue, onFiltersSettled, toArray } from './bricks.js'
+import { filterTargets, driveFilters, fetchQueries, isSameValue, onFiltersSettled, toArray } from './bricks.js'
 
 /** Live search elements, keyed by root. Mirrors `mounted` for the filters. */
 export const searchInstances = new Map()
@@ -286,6 +286,26 @@ function matchableTargets(instance) {
 	return filterTargets(instance.config.queryId || undefined).filter((target) => target.options.length > 0)
 }
 
+/**
+ * The queries the typed words reach on their own.
+ *
+ * Only used with the keyword pass on, where the sentence is a query condition
+ * rather than only a lookup key. `config.queryId` is included in its own right:
+ * a page can carry a keyword search and no Zag filters at all, and that is the
+ * only handle on the loop it belongs to.
+ */
+function keywordQueries(instance) {
+	const ids = new Set()
+
+	if (instance.config.queryId) {
+		ids.add(instance.config.queryId)
+	}
+
+	filterTargets(instance.config.queryId || undefined).forEach((target) => ids.add(target.filter.targetQueryId))
+
+	return ids
+}
+
 /** Parse what's typed, apply it, and tell the visitor what it was read as. */
 function run(instance) {
 	const text = instance.input.value
@@ -294,10 +314,26 @@ function run(instance) {
 	const plan = reconcile(instance, targets, wanted)
 
 	updateHint(instance, text, matchedLabels(wanted))
+
+	// Before any fetch: the server reads the sentence off the URL, which Bricks
+	// sends along as urlParams, so it has to be written by the time one goes out.
 	syncUrl(instance)
 
-	if (plan.length) {
-		driveFilters(plan)
+	const fetched = plan.length ? driveFilters(plan) : new Set()
+
+	/**
+	 * Nothing changed a filter, yet the results must still change.
+	 *
+	 * Without the keyword pass a sentence matching no option label is a no-op,
+	 * which is correct — there is nothing to filter by. With it the words
+	 * themselves narrow the query server side, so the request has to be issued
+	 * even though every filter on the page is untouched. Queries driveFilters
+	 * already fetched are skipped rather than asked twice.
+	 */
+	if (instance.config.keyword && text.trim() !== instance.searched) {
+		instance.searched = text.trim()
+
+		fetchQueries([...keywordQueries(instance)].filter((queryId) => !fetched.has(queryId)))
 	}
 }
 
@@ -316,6 +352,12 @@ function adopt(instance, text) {
 	const wanted = parse(text, targets, instance.config.synonyms)
 
 	instance.owned = ownershipFrom(wanted)
+
+	// The server already searched for these words while rendering the page, so
+	// recording them here is what stops the next run() re-requesting the same
+	// results. Same reasoning as the ownership record above, for the keyword half.
+	instance.searched = text.trim()
+
 	updateHint(instance, text, matchedLabels(wanted))
 }
 
@@ -342,6 +384,8 @@ export function mountSearch(root) {
 		config,
 		hint: root.querySelector('[data-zag-search-hint]'),
 		owned: new Map(),
+		/** The sentence the server was last asked to search for. */
+		searched: '',
 		timer: null
 	}
 

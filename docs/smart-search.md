@@ -72,6 +72,7 @@ is expressed: *"blue mountains"* selecting three suburbs at once.
 | Limit to query | Empty drives every Zag filter on the page. Set it only when a page carries two independent filtered queries |
 | Icon | Replaces the built-in magnifier |
 | No icon | Hides it entirely |
+| Also search post content | Opt-in. The typed words become a query condition of their own — see below |
 | Show interpretation hint | The "Read as **Podiatry** · **Penrith**" line |
 | Hint: prefix / Hint: no match | Wording for the above |
 | URL parameter | Defaults to `zag-search` |
@@ -79,6 +80,100 @@ is expressed: *"blue mountains"* selecting three suburbs at once.
 **Style** — the shared palette and field controls, plus icon size/colour/gap and
 the two hint colours. The popover controls are absent: this element has no
 popover.
+
+## Also search post content
+
+Off by default, and the one setting that changes what this element *is*.
+
+Without it the typed text never reaches the database. It is a lookup key: words
+are matched against the options the sibling filters offer, those filters' values
+are set, and Bricks builds the query from the filters alone. A word no filter
+covers — a practitioner's name, a phrase in a post body — finds nothing, because
+there is no filter holding it.
+
+Switched on, the sentence becomes a query condition in its own right and the
+results are the **union**:
+
+```
+posts matching the active filters  ∪  posts matching the typed words
+```
+
+So *"podiatry smith"* returns every Podiatry post **plus** everything matching
+"smith", rather than the intersection. That is deliberate: the field takes a
+whole sentence, and ANDing *"a podiatrist in penrith who accepts ndis"* as a
+keyword search would return nothing.
+
+Two rules fall out of it:
+
+**With no filter narrowing the query, the words stand alone.** A union against
+an unconstrained filter set is every post, which would make the field do nothing
+on exactly the words it exists to catch. So when nothing is active — or only a
+sort or a per-page — the term is applied as a plain `s` and the element behaves
+like an ordinary search box. This is what "closer to the default search" means
+in practice.
+
+**Everything active is on the left of the OR**, including choices the visitor
+made by hand in a dropdown. A manual selection therefore stops narrowing the
+moment words are typed. Ownership tracking is not consulted here: it decides
+what the search may *clear*, not what the query means.
+
+### What it costs
+
+Two extra `fields => 'ids'` queries per request on the target query, unpaged.
+
+A true OR cannot be expressed in one `WP_Query`. Taxonomy and custom field
+filters compile to `INNER JOIN`s, so an `OR ID IN (…)` bolted onto the `WHERE`
+cannot rescue a row the join has already dropped. The only shape that gives the
+right answer is running both halves as ID-only queries and unioning them into
+`post__in` — which is what `Zag\Keyword_Search` does, at
+`bricks/posts/query_vars` priority 1000, one past Bricks' own merge at 999.
+
+`no_found_rows` drops the `SQL_CALC_FOUND_ROWS` pass, which is the expensive
+half, but this is still two unbounded queries. Fine for a directory; think twice
+before switching it on over tens of thousands of posts.
+
+### Which query it searches
+
+**Limit to query** set, that query. Left empty, every query a Zag filter on the
+page points at — the same rule the client side uses to decide which filters to
+drive, which is what stops the words leaking into an unrelated loop that happens
+to share the page.
+
+A page with a keyword search and **no Zag filters at all** is a valid setup —
+it is then just a search box — but there is nothing to infer the query from, so
+**Limit to query must be set**. The builder says so under the checkbox.
+
+### How the term reaches the server
+
+The element is not a Bricks filter, so its value never rides in
+`selectedFilters`. The URL is its only channel:
+
+- **Page load** — `$_GET`, the same parameter the field is seeded from.
+- **Filter request** — the `urlParams` payload, which carries the query string
+  `search.js` wrote with `replaceState` *before* firing. Bricks added
+  `urlParams` in **2.3.8**; on older versions `Keyword_Search` falls back to
+  parsing the referrer, which `replaceState` keeps current. A referrer policy
+  that strips it would leave the words applying on load and not afterwards.
+
+`syncUrl()` runs before any fetch in `run()` for exactly this reason.
+
+**The clause must also be kept out of the query's recorded "original" state.**
+Bricks renders `data-original-query-vars` from
+`Query_Filters::$query_vars_before_merge` and falls back to the *final* vars
+when it is empty — and it only populates that property when a filter is active.
+A page loaded on `?zag-search=…` alone would otherwise post the keyword clause
+back as the query's original state on every later request, making the search
+impossible to clear. `Keyword_Search::apply()` writes the property itself before
+touching anything. It reproduces only from a refresh with the term already in
+the URL, which is what makes it look like a clearing bug.
+
+### A sentence that matches nothing still issues a request
+
+Normally a sentence resolving to no option label is a no-op — correctly, there
+is nothing to filter by. With this on, the words narrow the query server side,
+so the request has to go out even though every filter on the page is untouched.
+`run()` tracks the last sentence it searched for and calls `fetchQueries()` for
+whatever `driveFilters()` did not already cover.
 
 ## Behaviour worth knowing
 
@@ -109,7 +204,9 @@ a date it could not have set.
 ## Why this element is structurally simpler than the others
 
 It holds **no filter value**, which exempts it from everything documented in the
-root `CLAUDE.md` about impersonating native filter elements. It is absent from
+root `CLAUDE.md` about impersonating native filter elements. (Keyword search
+does not change this: it adds query vars from a hook of its own, and the element
+still registers no filter and holds no value.) It is absent from
 `Zag\element_map()`, and every hook in `Query_Filters_Bridge` keys off that map,
 so:
 
@@ -149,8 +246,14 @@ is skipped entirely.
 
 ## Testing
 
-Not covered by `tests/impersonation-test.php` — that harness stubs the Bricks
-PHP surface, and all of this logic is JS.
+`tests/impersonation-test.php` covers the keyword search's two pure decisions:
+whether anything is constraining the query (union vs. plain `s`), and which
+query vars survive the rebuild around `post__in`. Both fail silently in
+production — a wrong "yes" returns every post, a wrong key list drops a sort or
+reinstates a filter — and all three read as the search being broken.
+
+None of the matching logic is covered — that harness stubs the Bricks PHP
+surface, and this half is all JS.
 
 The matching, vocabulary and reconciliation functions are pure and would test
 well with `node --test` and no new dependencies, but they currently sit in the
@@ -164,3 +267,5 @@ prerequisite. Cases worth covering when that happens:
 - a synonym row expanding to several options
 - ownership: a manual selection surviving a new sentence and an emptied field
 - single vs multi slot behaviour
+- keyword search: an unmatched sentence still triggering one request, and the
+  same sentence twice triggering none
