@@ -1,0 +1,52 @@
+# Cuts a release by running release.sh on a GitHub runner, so anyone (or any
+# agent) who can start a workflow can ship an update without a local gh login.
+# Start it from the Actions tab, or with `gh workflow run release.yml -f bump=patch -f changelog="…"`.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "patch, minor, major, or an exact x.y.z"
+        required: true
+        default: patch
+      changelog:
+        description: "Changelog entries, one per line"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run release.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMP: ${{ inputs.bump }}
+          CHANGELOG: ${{ inputs.changelog }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mapfile -t entries < <(printf '%s\n' "$CHANGELOG" | sed '/^[[:space:]]*$/d')
+          bash release.sh "$BUMP" "${entries[@]}"

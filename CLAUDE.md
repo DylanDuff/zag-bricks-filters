@@ -674,6 +674,13 @@ repository's `main` branch with release assets enabled.
 bash release.sh patch "Changelog entry"   # or minor|major|x.y.z
 ```
 
+Or, with no local `gh` login (agents included), start the **Release** workflow
+(`.github/workflows/release.yml`) with inputs `bump` and `changelog` (one entry
+per line): from the Actions tab, `gh workflow run release.yml -f bump=patch -f
+changelog="…"`, or the GitHub MCP `actions_run_trigger` tool. It runs this same
+script on a runner with the workflow's own token, so there is one release path,
+not two.
+
 Run from a clean `main`. It rebuilds the bundle and runs the PHP tests first,
 refusing to release a stale `assets/js`, then bumps `Version:` in `plugin.php`,
 commits and pushes, and creates a `vX.Y.Z` GitHub release with
