@@ -679,6 +679,9 @@ Only `plugin.php`, `assets/`, `inc/` and `plugin-update-checker/` are packaged.
 The zip's top-level folder is the plugin slug, so it must stay
 `zag-filters-for-bricks` or WordPress installs the update beside the old copy.
 
-The repository is public, so the updater needs no token. If that changes, the
-token goes in `wp-config.php` or the environment and is passed to
-`setAuthentication()`, never committed.
+The repository is **private**, so each site needs a read-only token or GitHub
+returns 404 and no update ever appears: a fine-grained personal access token
+scoped to this repository with *Contents: read*, set as
+`define( 'ZAG_GITHUB_TOKEN', '…' );` in `wp-config.php` (or the
+`ZAG_GITHUB_TOKEN` environment variable). Never commit it. If the repository is
+made public the token becomes unnecessary and the code still works without it.
