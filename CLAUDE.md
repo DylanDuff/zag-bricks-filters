@@ -114,6 +114,20 @@ absent from its input. Bricks' pass at 11 would therefore delete our rows if we
 ran first. Running at 12 with a superset (native elements untouched + Zag
 elements renamed) reinstates everything in one write.
 
+**`update_post_metadata` is not the only writer.** Bricks rewrites the element
+table from the page's real element list in three more places, and since 2.0 a
+list with no native filter in it makes `maybe_update_element()` call
+`delete_post()`, wiping every row the post has, ours included:
+
+| Bricks path | Our replay |
+|---|---|
+| `added_post_meta` (a page's first save: `update_post_meta()` on a new key falls through to `add_metadata()`) | `index_added_zag_elements()`, priority 11 |
+| `untrashed_post` → `restore_post()` | `resync_post()`, priority 20 |
+| Settings' "fix filter element database" (`fix_filter_element_db()`: truncates both tables, rebuilds only from posts matching native names) | `resync_after_element_db_rebuild()` → `resync_all_posts()` on shutdown, since Bricks' handler dies in `wp_send_json()` |
+
+Missing any of these leaves the filter unindexed: every option counts 0, with
+no error, until the page is saved again.
+
 This is the most fragile part of the plugin. If counts stop working after a
 Bricks update, check this first.
 

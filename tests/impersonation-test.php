@@ -30,6 +30,7 @@ namespace {
 	function wp_strip_all_tags( $s ) { return strip_tags( $s ); }
 	function wp_unslash( $v ) { return $v; }
 	function sanitize_text_field( $s ) { return trim( strip_tags( (string) $s ) ); }
+	function get_post_meta( $id, $key, $single = false ) { return $GLOBALS['post_meta'][ $id ][ $key ] ?? ''; }
 }
 
 // --- Bricks stubs ----------------------------------------------------------
@@ -269,6 +270,35 @@ namespace {
 	Bricks\Query_Filters::$replayed = [];
 	$bridge->index_zag_elements( null, 42, '_some_other_meta', $elements, '' );
 	check( 'ignores non-Bricks meta keys', Bricks\Query_Filters::$replayed, [] );
+
+	// A page's first save also fires added_post_meta, where Bricks rewrites the
+	// table again from the real names; the replay has to follow it there too.
+	Bricks\Query_Filters::$replayed = [];
+	$bridge->index_added_zag_elements( 7, 42, BRICKS_DB_PAGE_CONTENT, $elements );
+	check(
+		'first save (added_post_meta) replays too',
+		Bricks\Query_Filters::$replayed,
+		[ 'native1:filter-select', 'zagA:filter-select', 'zagB:filter-checkbox' ]
+	);
+
+	// Untrash and Bricks' element DB rebuild resync from stored meta, per area.
+	$GLOBALS['post_meta'] = [
+		42 => [
+			BRICKS_DB_PAGE_CONTENT => $elements,
+			BRICKS_DB_PAGE_HEADER  => [ [ 'id' => 'zagH', 'name' => 'zag-sort', 'settings' => [] ] ],
+		],
+	];
+	Bricks\Query_Filters::$replayed = [];
+	$bridge->resync_post( 42 );
+	check(
+		'resync replays every Bricks area holding a Zag element',
+		Bricks\Query_Filters::$replayed,
+		[ 'zagH:filter-select', 'native1:filter-select', 'zagA:filter-select', 'zagB:filter-checkbox' ]
+	);
+
+	Bricks\Query_Filters::$replayed = [];
+	$bridge->resync_post( 99 );
+	check( 'resync of a post with no Bricks data does nothing', Bricks\Query_Filters::$replayed, [] );
 
 	// --- 4. Taxonomy query vars -------------------------------------------
 	Bricks\Query_Filters::$active_filters = [

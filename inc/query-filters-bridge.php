@@ -47,6 +47,20 @@ class Query_Filters_Bridge {
 		 */
 		add_action( 'update_post_metadata', [ $this, 'index_zag_elements' ], 12, 5 );
 
+		/**
+		 * The other three places Bricks rewrites the element table.
+		 *
+		 * Each one hands Bricks the page's real element list, where ours are
+		 * invisible, and since Bricks 2.0 a list with no native filter in it
+		 * makes maybe_update_element() delete every row the post has — ours
+		 * included. So each needs a replay of its own, after Bricks' pass.
+		 *
+		 * @see resync_post()
+		 */
+		add_action( 'added_post_meta', [ $this, 'index_added_zag_elements' ], 11, 4 );
+		add_action( 'untrashed_post', [ $this, 'resync_post' ], 20 );
+		add_action( 'wp_ajax_bricks_fix_filter_element_db', [ $this, 'resync_after_element_db_rebuild' ], 1 );
+
 		// Build query vars Bricks' name-keyed switch statement skips for us.
 		add_filter( 'bricks/query_filters/filter_query_vars', [ $this, 'build_query_vars' ], 10, 4 );
 
@@ -176,6 +190,95 @@ class Query_Filters_Bridge {
 		);
 
 		return $check;
+	}
+
+	/**
+	 * The same replay for a page's first save.
+	 *
+	 * update_post_meta() on a key that doesn't exist yet fires
+	 * update_post_metadata (where index_zag_elements() runs) and then falls
+	 * through to add_metadata(), which fires added_post_meta. Bricks listens
+	 * there too (query-filters.php qf_added_post_meta(), priority 10), so on a
+	 * brand new page it rewrites the element table a second time, from the
+	 * original elements, after our replay. With no native filter on the page
+	 * that pass deletes the Zag rows outright; with one, it drops them as
+	 * absent. Either way the filter ends up unindexed and every option counts
+	 * zero until the page is saved again.
+	 */
+	public function index_added_zag_elements( $meta_id, $object_id, $meta_key, $meta_value ) {
+		$this->index_zag_elements( null, $object_id, $meta_key, $meta_value, '' );
+	}
+
+	/**
+	 * Replay the element table update for a post from what it has stored.
+	 *
+	 * For the paths that rebuild from the database rather than a meta write:
+	 * restoring a trashed post (Bricks re-adds only its native filters), and
+	 * the rebuild below.
+	 */
+	public function resync_post( $post_id ) {
+		foreach ( [ BRICKS_DB_PAGE_HEADER, BRICKS_DB_PAGE_CONTENT, BRICKS_DB_PAGE_FOOTER ] as $meta_key ) {
+			$elements = get_post_meta( $post_id, $meta_key, true );
+
+			if ( is_array( $elements ) && ! empty( $elements ) ) {
+				$this->index_zag_elements( null, $post_id, $meta_key, $elements, '' );
+			}
+		}
+	}
+
+	/**
+	 * Put Zag filters back after Bricks' "fix filter element database" tool.
+	 *
+	 * Query_Filters::fix_filter_element_db() truncates the element and index
+	 * tables, then rebuilds them from posts whose Bricks data matches a native
+	 * filter element's serialised name. A page whose only filter is ours never
+	 * matches, and one that does is rebuilt from its native filters alone, so
+	 * the tool silently unindexes every Zag filter on the site.
+	 *
+	 * Bricks' handler ends in wp_send_json(), which dies, so this can't run
+	 * after it on the same action. Shutdown still fires after the die.
+	 */
+	public function resync_after_element_db_rebuild() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		add_action( 'shutdown', [ $this, 'resync_all_posts' ] );
+	}
+
+	/** Replay every post whose Bricks data contains a Zag filter element. */
+	public function resync_all_posts() {
+		$meta_query = [ 'relation' => 'OR' ];
+
+		foreach ( array_keys( element_map() ) as $name ) {
+			// Serialised the way Bricks' own rebuild matches native names.
+			$needle = 's:' . strlen( $name ) . ':"' . $name . '"';
+
+			foreach ( [ BRICKS_DB_PAGE_HEADER, BRICKS_DB_PAGE_CONTENT, BRICKS_DB_PAGE_FOOTER ] as $meta_key ) {
+				$meta_query[] = [
+					'key'     => $meta_key,
+					'value'   => $needle,
+					'compare' => 'LIKE',
+				];
+			}
+		}
+
+		$query = new \WP_Query(
+			[
+				'post_type'        => array_diff( get_post_types(), [ 'revision', 'custom_css', 'customize_changeset', 'oembed_cache', 'user_request' ] ),
+				'post_status'      => [ 'publish', 'draft', 'pending', 'future', 'private' ],
+				'posts_per_page'   => -1,
+				'fields'           => 'ids',
+				'no_found_rows'    => true,
+				'suppress_filters' => true,
+				'lang'             => '',
+				'meta_query'       => $meta_query,
+			]
+		);
+
+		foreach ( $query->posts as $post_id ) {
+			$this->resync_post( $post_id );
+		}
 	}
 
 	/**
