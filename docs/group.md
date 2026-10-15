@@ -141,7 +141,9 @@ and picking a service leaves only the locations offering it.
   every *other* select that has a selection. A multi-selection counts as the
   union of its options. A select never narrows itself, so the visitor can
   always switch to another option in the select they last used, and clearing
-  a selection brings its siblings' options back.
+  a selection brings its siblings' options back. A linked single select is
+  cleared by clicking its chosen option again (Zag's `deselectable`); unlinked
+  selects keep the old behaviour.
 - **A selected option is never hidden**, even when a later pick in a third
   select rules it out, so nothing is ever selected that can't be seen.
 - **Post type.** Selects only constrain each other when their **Post type**
