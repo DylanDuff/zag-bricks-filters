@@ -679,9 +679,11 @@ Only `plugin.php`, `assets/`, `inc/` and `plugin-update-checker/` are packaged.
 The zip's top-level folder is the plugin slug, so it must stay
 `zag-filters-for-bricks` or WordPress installs the update beside the old copy.
 
-The repository is **private**, so each site needs a read-only token or GitHub
-returns 404 and no update ever appears: a fine-grained personal access token
-scoped to this repository with *Contents: read*, set as
-`define( 'ZAG_GITHUB_TOKEN', '…' );` in `wp-config.php` (or the
-`ZAG_GITHUB_TOKEN` environment variable). Never commit it. If the repository is
-made public the token becomes unnecessary and the code still works without it.
+The repository (`DylanDuff/zag-bricks-filters`) is public, so sites need no
+token. If it is ever private, each site needs a read-only token (fine-grained,
+*Contents: read*) as `define( 'ZAG_GITHUB_TOKEN', '…' );` in `wp-config.php` or
+the `ZAG_GITHUB_TOKEN` environment variable, or GitHub returns 404 and no update
+appears. Never commit it.
+
+The repository name and the plugin slug differ on purpose. The slug is the
+installed folder name, so it stays `zag-filters-for-bricks`.

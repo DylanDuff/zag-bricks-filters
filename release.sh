@@ -3,7 +3,7 @@ set -e
 
 PLUGIN_SLUG="zag-filters-for-bricks"
 MAIN_FILE="plugin.php"
-GITHUB_REPO="DylanDuff/zag-filters-for-bricks"
+GITHUB_REPO="DylanDuff/zag-bricks-filters"
 
 # Colors
 RED='\033[0;31m'
