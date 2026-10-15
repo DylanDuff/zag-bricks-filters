@@ -416,6 +416,11 @@
 	cursor: not-allowed;
 }
 
+/* Ruled out by a linked sibling (src/link.js). display: flex above beats the UA's [hidden]. */
+.zag-select__option[hidden] {
+	display: none;
+}
+
 .zag-select__option-label {
 	overflow: hidden;
 	text-overflow: ellipsis;

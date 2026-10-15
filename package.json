@@ -6,9 +6,9 @@
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
-    "test": "php tests/impersonation-test.php",
+    "test": "php tests/impersonation-test.php && node --test tests/link-core.test.mjs",
     "lint": "npx oxlint src/",
-    "check": "npx oxlint src/ && node build.mjs && php tests/impersonation-test.php"
+    "check": "npx oxlint src/ && node build.mjs && php tests/impersonation-test.php && node --test tests/link-core.test.mjs"
   },
   "dependencies": {
     "@internationalized/date": "^3.12.2",

@@ -168,8 +168,11 @@ function zag_select_controls() {
  * reads sourceType/sourceSlug off instance.config with no wiring of its own.
  * Left as '' (not passed) for the date picker, which is a date range, not a
  * post/term reference — there's nothing meaningful to report.
+ *
+ * $extra_config is merged into data-zag-select as-is, for keys only one
+ * caller has (zag-select's `link`).
  */
-function render_zag_select( \Bricks\Element $element, array $options, array $current_value, bool $multiple, string $input_name, string $placeholder, string $source_type = '', string $source_slug = '' ) {
+function render_zag_select( \Bricks\Element $element, array $options, array $current_value, bool $multiple, string $input_name, string $placeholder, string $source_type = '', string $source_slug = '', array $extra_config = [] ) {
 	$settings = $element->settings;
 
 	apply_builder_preview_attribute( $element );
@@ -187,7 +190,7 @@ function render_zag_select( \Bricks\Element $element, array $options, array $cur
 		'items'        => $options,
 		'sourceType'   => $source_type,
 		'sourceSlug'   => $source_slug,
-	];
+	] + $extra_config;
 
 	if ( ! empty( $settings['zagMenuUncapped'] ) ) {
 		$element->set_attribute( '_root', 'data-zag-menu-uncapped', 'true' );
