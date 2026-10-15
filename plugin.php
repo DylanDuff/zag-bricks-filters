@@ -38,6 +38,7 @@ function version() {
 require_once ZAG_PATH . 'inc/element-map.php';
 require_once ZAG_PATH . 'inc/style-controls.php';
 require_once ZAG_PATH . 'inc/builder-preview.php';
+require_once ZAG_PATH . 'inc/select-shared.php';
 require_once ZAG_PATH . 'inc/query-filters-bridge.php';
 require_once ZAG_PATH . 'inc/keyword-search.php';
 
@@ -101,6 +102,14 @@ add_action(
 			ZAG_PATH . 'inc/elements/active-filters.php',
 			'zag-active-filters',
 			__NAMESPACE__ . '\Element_Zag_Active_Filters'
+		);
+
+		// Same field as zag-filter-select (inc/select-shared.php), but with no
+		// query and no filter — options are manual, taxonomy or post.
+		\Bricks\Elements::register_element(
+			ZAG_PATH . 'inc/elements/select.php',
+			'zag-select',
+			__NAMESPACE__ . '\Element_Zag_Select'
 		);
 	},
 	20

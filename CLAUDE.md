@@ -50,7 +50,22 @@ The smart search's opt-in keyword pass does not change that. It adds query vars
 from a hook of its own (`Keyword_Search`, below); the element still registers no
 filter and holds no value.
 
-Both are **client-rendered on purpose**. Bricks' own active filters element is
+**`zag-select` is a fourth exception**, and the reason a nested
+`zag-filter-select` needs no target query still isn't enough on its own: the
+filter element also unconditionally requires a **Source**
+(taxonomy/wpField/customField) before it renders anything, since that's what a
+real filter needs to build its query — with none set it shows Bricks' own "No
+filter source selected." placeholder regardless of whether a query is
+targeted. `zag-select` is the same field with none of that: options come from
+a manual list, a taxonomy or a post type, chosen directly, no query or filter
+machinery anywhere. The two elements share their field markup and
+label/caption/icon/placement/multi-select controls via
+`inc/select-shared.php` (`zag_select_controls()`, `render_zag_select()`) —
+extracted out of `Element_Zag_Filter_Select`, not duplicated, so **change
+either element's field rendering there, not in both files**. See
+`docs/select.md`.
+
+The first two are **client-rendered on purpose**. Bricks' own active filters element is
 the cautionary example: it gates one-chip-per-value on
 `$instance_name === 'filter-checkbox'` (`filter-active-filters.php:280`) and date
 formatting on `'filter-datepicker'` (`:406`), and reads a value already collapsed

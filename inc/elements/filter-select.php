@@ -42,8 +42,10 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 		'filterChildIndentationGap',
 	];
 
+	// "Filter select", not "Select": zag-select (inc/elements/select.php) is the
+	// same field with no query, and the two must read apart in the elements list.
 	public function get_label() {
-		return esc_html__( 'Zag', 'zag' ) . ' - ' . esc_html__( 'Select', 'zag' );
+		return esc_html__( 'Zag', 'zag' ) . ' - ' . esc_html__( 'Filter select', 'zag' );
 	}
 
 	public function get_keywords() {
@@ -137,116 +139,9 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			$this->controls = array_merge( $this->controls, $filter_controls );
 		}
 
-		$this->controls['zagLabel'] = [
-			'group'  => 'zagFunction',
-			'type'   => 'text',
-			'label'  => esc_html__( 'Label', 'zag' ),
-			'inline' => true,
-			'desc'   => esc_html__( 'Leave empty to use the placeholder as a hidden accessible name.', 'zag' ),
-		];
-
-		$this->controls['zagLabelHidden'] = [
-			'group' => 'zagFunction',
-			'type'  => 'checkbox',
-			'label' => esc_html__( 'Hide label visually', 'zag' ),
-			'desc'  => esc_html__( 'Still read by screen readers.', 'zag' ),
-		];
-
-		$this->controls['zagCaption'] = [
-			'group' => 'zagFunction',
-			'type'  => 'checkbox',
-			'label' => esc_html__( 'Show caption', 'zag' ),
-			'desc'  => esc_html__( 'A status line below the field showing the current selection.', 'zag' ),
-		];
-
-		$this->controls['zagCaptionEmpty'] = [
-			'group'       => 'zagFunction',
-			'type'        => 'text',
-			'label'       => esc_html__( 'Caption: empty', 'zag' ),
-			'inline'      => true,
-			'placeholder' => esc_html__( 'Nothing selected', 'zag' ),
-			'required'    => [ 'zagCaption', '!=', '' ],
-		];
-
-		/**
-		 * Leading icon.
-		 *
-		 * The ref pairs this with its pill variant, but a pill is just a large
-		 * Field radius — no display mode needed, and the user keeps full control
-		 * of the shape. The icon is the part that couldn't be expressed as a
-		 * style value, so it's the only piece that became a control.
-		 */
-		$this->controls['zagIcon'] = [
-			'group' => 'zagFunction',
-			'type'  => 'icon',
-			'label' => esc_html__( 'Icon', 'zag' ),
-			'desc'  => esc_html__( 'Shown at the start of the field.', 'zag' ),
-		];
-
-		$this->controls['zagMultiple'] = [
-			'group' => 'zagFunction',
-			'type'  => 'checkbox',
-			'label' => esc_html__( 'Multi-select', 'zag' ),
-			'desc'  => esc_html__( 'Allow selecting more than one option.', 'zag' ),
-		];
-
-		/**
-		 * Shown after the count once more than one option is selected, e.g.
-		 * "3 locations". Only ever appears in the plural, since a single
-		 * selection shows its own label instead — so no singular form is needed.
-		 */
-		$this->controls['zagCounterLabel'] = [
-			'group'       => 'zagFunction',
-			'type'        => 'text',
-			'label'       => esc_html__( 'Counter label', 'zag' ),
-			'inline'      => true,
-			'placeholder' => esc_html__( 'selected', 'zag' ),
-			'desc'        => esc_html__( 'Follows the count, e.g. "3 locations".', 'zag' ),
-			'required'    => [ 'zagMultiple', '!=', '' ],
-		];
-
-		$this->controls['placeholder'] = [
-			'group' => 'zagFunction',
-			'type'   => 'text',
-			'label'  => esc_html__( 'Placeholder', 'zag' ),
-			'inline' => true,
-		];
-
-		$this->controls['zagPlacement'] = [
-			'group' => 'zagFunction',
-			'type'        => 'select',
-			'label'       => esc_html__( 'Placement', 'zag' ),
-			'inline'      => true,
-			'options'     => [
-				'bottom-start' => esc_html__( 'Below', 'zag' ),
-				'top-start'    => esc_html__( 'Above', 'zag' ),
-			],
-			'placeholder' => esc_html__( 'Below', 'zag' ),
-		];
-
-		/**
-		 * Phrased as the exception, not the default.
-		 *
-		 * A checkbox only has set and unset, and `default => true` is a builder-UI
-		 * affordance that never reaches $settings — so an unchecked box and an
-		 * untouched one are indistinguishable, and a default-on option can never
-		 * be turned off. Negative options avoid that entirely: unset is the
-		 * default behaviour.
-		 */
-		$this->controls['zagMenuUncapped'] = [
-			'group' => 'zagFunction',
-			'type'  => 'checkbox',
-			'label' => esc_html__( 'Uncapped menu height', 'zag' ),
-			'desc'  => esc_html__( 'Grow to fit every option instead of scrolling.', 'zag' ),
-		];
-
-		// Negative option for the same reason as above.
-		$this->controls['zagAutoWidth'] = [
-			'group' => 'zagFunction',
-			'type'  => 'checkbox',
-			'label' => esc_html__( 'Auto menu width', 'zag' ),
-			'desc'  => esc_html__( 'Size the menu to its content rather than the field.', 'zag' ),
-		];
+		// Shared with zag-select: label, caption, icon, multi-select, counter
+		// label, placeholder, placement, menu sizing. See inc/select-shared.php.
+		$this->controls = array_merge( $this->controls, zag_select_controls() );
 
 		$this->controls = array_merge(
 			$this->controls,
@@ -437,114 +332,21 @@ class Element_Zag_Filter_Select extends \Bricks\Filter_Element {
 			$options[] = $item;
 		}
 
-		$config = [
-			'multiple'    => $multiple,
-			'placement'   => $settings['zagPlacement'] ?? 'bottom-start',
-			'sameWidth'   => empty( $settings['zagAutoWidth'] ),
-			'placeholder' => $placeholder,
-			'counterLabel' => ! empty( $settings['zagCounterLabel'] )
-				? $this->render_dynamic_data( $settings['zagCounterLabel'] )
-				: esc_html__( 'selected', 'zag' ),
-			'name'        => $this->input_name,
-			'value'       => $current_value,
-			'items'       => $options,
-		];
+		$source_type = (string) ( $settings['filterSource'] ?? '' );
+		$source_slug = '';
 
-		if ( ! empty( $settings['zagMenuUncapped'] ) ) {
-			$this->set_attribute( '_root', 'data-zag-menu-uncapped', 'true' );
+		if ( $source_type === 'taxonomy' ) {
+			$source_slug = (string) ( $settings['filterTaxonomy'] ?? '' );
+		} elseif ( $source_type === 'wpField' ) {
+			// The field *group* (post/user/term), not the specific field within
+			// it — the closest match to zag-select's taxonomy/post-type slug
+			// without chasing Bricks' further per-group field sub-controls.
+			$source_slug = (string) ( $settings['sourceFieldType'] ?? 'post' );
+		} elseif ( $source_type === 'customField' ) {
+			$source_slug = (string) ( $settings['customFieldKey'] ?? '' );
 		}
 
-		$this->set_attribute( '_root', 'class', 'zag-select' );
-		$this->set_attribute( '_root', 'data-zag-select', wp_json_encode( $config ) );
-
-		if ( $multiple ) {
-			$this->set_attribute( '_root', 'data-zag-multiple', 'true' );
-		}
-
-		echo "<div {$this->render_attributes('_root')}>";
-
-
-		/**
-		 * Always rendered, even with no label text.
-		 *
-		 * Zag's trigger carries aria-labelledby pointing at its label part. With
-		 * no label element that reference dangles and the control has no
-		 * accessible name at all, so fall back to the placeholder and hide it.
-		 */
-		$empty_caption = ! empty( $settings['zagCaptionEmpty'] )
-			? $this->render_dynamic_data( $settings['zagCaptionEmpty'] )
-			: esc_html__( 'Nothing selected', 'zag' );
-
-		$label_text   = ! empty( $settings['zagLabel'] ) ? $this->render_dynamic_data( $settings['zagLabel'] ) : '';
-		$label_hidden = $label_text === '' || ! empty( $settings['zagLabelHidden'] );
-
-		printf(
-			'<label class="%s__label%s" data-zag-label>%s</label>',
-			'zag-select',
-			$label_hidden ? ' is-hidden' : '',
-			esc_html( $label_text !== '' ? $label_text : $placeholder )
-		);
-
-		/**
-		 * Rendered here rather than passed through the config JSON so the icon
-		 * markup never round-trips as a string: select.js relocates this node
-		 * into the trigger, so no arbitrary HTML is ever assigned via innerHTML.
-		 */
-		if ( ! empty( $settings['zagIcon'] ) ) {
-			printf(
-				'<span class="zag-select__icon" data-zag-icon>%s</span>',
-				self::render_icon( $settings['zagIcon'] )
-			);
-		}
-
-		/**
-		 * Progressive enhancement baseline.
-		 *
-		 * Rendered as a working native control so the filter is usable before
-		 * (and if) the Zag bundle runs. zag-filters.js hides it on mount and
-		 * mirrors every selection back into it, which also keeps Bricks' own
-		 * value plumbing pointed at a real form control.
-		 */
-		$select_name = $multiple ? $this->input_name . '[]' : $this->input_name;
-
-		printf(
-			'<select class="zag-select__native" name="%s" data-zag-native%s>',
-			esc_attr( $select_name ),
-			$multiple ? ' multiple' : ''
-		);
-
-		if ( ! $multiple ) {
-			printf(
-				'<option value="" %s>%s</option>',
-				selected( $current_value === [] || $current_value === [ '' ], true, false ),
-				esc_html( $placeholder )
-			);
-		}
-
-		foreach ( $options as $option ) {
-			printf(
-				'<option value="%s"%s%s>%s</option>',
-				esc_attr( $option['value'] ),
-				in_array( $option['value'], $current_value, true ) ? ' selected' : '',
-				$option['disabled'] ? ' disabled' : '',
-				esc_html( $option['label'] )
-			);
-		}
-
-		echo '</select>';
-
-
-		// Live region: the text is rewritten client-side as the value changes.
-		if ( ! empty( $settings['zagCaption'] ) ) {
-			printf(
-				'<p class="%s__caption" data-zag-caption data-empty-text="%s"><span class="%s__dot"></span><span data-zag-caption-text>%s</span></p>',
-				'zag-select',
-				esc_attr( $empty_caption ),
-				'zag-select',
-				esc_html( $empty_caption )
-			);
-		}
-
-		echo '</div>';
+		// Shared with zag-select. See inc/select-shared.php.
+		render_zag_select( $this, $options, $current_value, $multiple, $this->input_name, $placeholder, $source_type, $source_slug );
 	}
 }
