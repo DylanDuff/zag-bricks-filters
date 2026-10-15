@@ -32,7 +32,7 @@ stops it being used standalone.
 | Taxonomy *(Taxonomy)* | Any registered taxonomy. Options are its terms, `term_id` as the value |
 | Hide empty terms *(Taxonomy)* | Off by default, same as a manual list — nothing to "count" here since there's no query |
 | Post type *(Posts)* | Any public post type. Options are its published posts ordered by title, post ID as the value |
-| Post type *(Taxonomy)* | Optional. Only read inside a [group](group.md#linked-selects) with Link select options on, where it limits which posts count |
+| Link by post type *(Taxonomy)* | Optional. Only read inside a [group](group.md#linked-selects) with Link select options on, where it limits which posts count. Empty counts every post type the taxonomy is on |
 
 Everything else — Label, Caption, Icon, Multi-select, Counter label,
 Placeholder, Placement, menu sizing, **Preview in builder**, and the whole

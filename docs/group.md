@@ -146,9 +146,16 @@ and picking a service leaves only the locations offering it.
   selects keep the old behaviour.
 - **A selected option is never hidden**, even when a later pick in a third
   select rules it out, so nothing is ever selected that can't be seen.
-- **Post type.** Selects only constrain each other when their **Post type**
-  setting matches (shown for a taxonomy source, optional there). Left empty,
-  every post type the taxonomy is registered for counts.
+- **Post type.** Selects only constrain each other when their **Link by post
+  type** setting matches. Left empty (the usual case), every post type the
+  taxonomy is registered for counts. It is deliberately not the Posts
+  source's **Post type** key: a select switched from Posts to Taxonomy keeps
+  that value hidden, and reading it once limited linking to a type the terms
+  weren't on, so every option shipped `posts: []`.
+- **Missing data fails open.** A pick whose options carry no posts constrains
+  nothing, rather than hiding every sibling option. If linking seems to do
+  nothing, check the payload: `JSON.parse(el.dataset.zagSelect).items` should
+  show a non-empty `posts` list per term.
 - **Cost.** Each linked select adds two queries per page render (the post ids
   carrying any of its terms, then their term relationships) and ships each
   term's post ids in its `data-zag-select` payload. Fine for a directory;

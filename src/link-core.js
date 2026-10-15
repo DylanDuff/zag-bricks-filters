@@ -11,6 +11,9 @@
  * selects sharing a post type constrain each other, since post ids from two
  * different types never describe the same thing.
  *
+ * A selection whose options carry no posts at all is ignored rather than
+ * hiding everything.
+ *
  * A selected option is never hidden. With three or more selects a later pick
  * can rule out an earlier one, and hiding it would leave a value the visitor
  * can't see or clear from the menu.
@@ -36,7 +39,15 @@ export function computeHidden(members) {
 			}
 		}
 
-		selectedPosts.set(member.key, posts)
+		/**
+		 * A pick with no posts behind it constrains nothing. Read literally it
+		 * would rule out every sibling option, which is never what a visitor
+		 * means and is exactly how missing post data looks: with an empty
+		 * payload, any pick emptied the other select.
+		 */
+		if (posts.size) {
+			selectedPosts.set(member.key, posts)
+		}
 	}
 
 	const hidden = new Map()

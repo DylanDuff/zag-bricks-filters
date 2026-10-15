@@ -83,3 +83,17 @@ test('values compare as strings', () => {
 
 	assert.deepEqual(hiddenOf(result, 'service'), ['21'])
 })
+
+test('a pick with no posts behind it hides nothing', () => {
+	const result = computeHidden([locations(['12']), services()])
+
+	assert.deepEqual(hiddenOf(result, 'service'), [])
+})
+
+test('missing post data never empties a sibling', () => {
+	const bare = (member) => ({ ...member, items: member.items.map((item) => ({ ...item, posts: [] })) })
+	const result = computeHidden([bare(locations(['10'])), bare(services())])
+
+	assert.deepEqual(hiddenOf(result, 'service'), [])
+	assert.deepEqual(hiddenOf(result, 'location'), [])
+})
