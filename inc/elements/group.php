@@ -48,6 +48,22 @@ class Element_Zag_Group extends \Bricks\Element_Container {
 	public $icon     = 'ti-package';
 	public $nestable = true;
 
+	/**
+	 * One entry per group currently rendering, innermost last.
+	 *
+	 * Bricks renders a container's children inside its own render() call, so a
+	 * nested zag-select can read whether it sits in a linking group off this
+	 * stack, with no page-data lookup that would miss templates or components.
+	 *
+	 * @see Element_Zag_Select::link_config()
+	 */
+	private static $link_stack = [];
+
+	/** Whether the innermost group being rendered links its selects. */
+	public static function is_linking() {
+		return ! empty( self::$link_stack ) && end( self::$link_stack );
+	}
+
 	public function get_label() {
 		return esc_html__( 'Zag', 'zag' ) . ' - ' . esc_html__( 'Group', 'zag' );
 	}
@@ -91,10 +107,22 @@ class Element_Zag_Group extends \Bricks\Element_Container {
 			'placeholder' => esc_html__( 'e.g. .my-submit-button', 'zag' ),
 			'desc'        => esc_html__( 'Optional. A plain CSS selector — clicking anything matching it, anywhere on the page, submits this group.', 'zag' ),
 		];
+
+		/**
+		 * Opt-in: it adds every term's post ids to each select's payload, which
+		 * a group that only collects values has no use for.
+		 */
+		$this->controls['zagLinkSelects'] = [
+			'group' => 'zagFunction',
+			'type'  => 'checkbox',
+			'label' => esc_html__( 'Link select options', 'zag' ),
+			'desc'  => esc_html__( 'Choosing an option in one taxonomy select hides options in the others that share no posts with it. Applies to Zag - Select elements with a Taxonomy source.', 'zag' ),
+		];
 	}
 
 	public function render() {
 		$fn               = trim( (string) ( $this->settings['zagFn'] ?? '' ) );
+		$link             = ! empty( $this->settings['zagLinkSelects'] );
 		$trigger_selector = trim( (string) ( $this->settings['zagTriggerSelector'] ?? '' ) );
 
 		// group.js's selectors all key off this — Bricks only ever adds
@@ -111,6 +139,16 @@ class Element_Zag_Group extends \Bricks\Element_Container {
 			)
 		);
 
-		parent::render();
+		if ( $link ) {
+			$this->set_attribute( '_root', 'data-zag-link', 'true' );
+		}
+
+		self::$link_stack[] = $link;
+
+		try {
+			parent::render();
+		} finally {
+			array_pop( self::$link_stack );
+		}
 	}
 }

@@ -133,13 +133,19 @@ class Element_Zag_Select extends \Bricks\Element {
 			'required' => [ 'zagSourceType', '=', 'taxonomy' ],
 		];
 
+		/**
+		 * Shown for a taxonomy source too, where it is optional and only read
+		 * when linking: it limits which posts count when this select narrows its
+		 * siblings in a group (link_config()). Linked selects must agree on it.
+		 */
 		$this->controls['zagPostType'] = [
 			'group'       => 'zagSource',
 			'type'        => 'select',
 			'label'       => esc_html__( 'Post type', 'zag' ),
 			'options'     => $this->post_type_options(),
 			'placeholder' => esc_html__( 'Select', 'zag' ),
-			'required'    => [ 'zagSourceType', '=', 'post' ],
+			'desc'        => esc_html__( 'For a taxonomy source: optional, and only used by a group with Link select options on. Selects linked together must share a post type.', 'zag' ),
+			'required'    => [ 'zagSourceType', '=', [ 'taxonomy', 'post' ] ],
 		];
 
 		// Shared with zag-filter-select. See inc/select-shared.php.
@@ -261,6 +267,69 @@ class Element_Zag_Select extends \Bricks\Element {
 		);
 	}
 
+	/**
+	 * Whether a surrounding zag-group asked for its selects to be linked.
+	 *
+	 * Read off the group's render stack, which only holds entries while a group
+	 * is rendering its children. The builder renders elements one at a time,
+	 * so linking never applies there.
+	 */
+	private function is_linking() {
+		return class_exists( __NAMESPACE__ . '\Element_Zag_Group' ) && Element_Zag_Group::is_linking();
+	}
+
+	/**
+	 * Published post ids per term, keyed by term id string.
+	 *
+	 * Two queries however many terms there are: the ids of every published
+	 * post carrying any term of the taxonomy, then their term relationships in
+	 * one go. With no post type set, every type the taxonomy is registered for
+	 * counts.
+	 *
+	 * @return array<string, int[]>
+	 */
+	public static function posts_by_term( $taxonomy, $post_type ) {
+		$taxonomy_object = get_taxonomy( $taxonomy );
+
+		if ( ! $taxonomy_object ) {
+			return [];
+		}
+
+		$ids = get_posts(
+			[
+				'post_type'        => $post_type !== '' ? $post_type : $taxonomy_object->object_type,
+				'post_status'      => 'publish',
+				'numberposts'      => -1,
+				'fields'           => 'ids',
+				'no_found_rows'    => true,
+				'tax_query'        => [
+					[
+						'taxonomy' => $taxonomy,
+						'operator' => 'EXISTS',
+					],
+				],
+			]
+		);
+
+		if ( empty( $ids ) ) {
+			return [];
+		}
+
+		$terms = wp_get_object_terms( $ids, $taxonomy, [ 'fields' => 'all_with_object_id' ] );
+
+		if ( is_wp_error( $terms ) ) {
+			return [];
+		}
+
+		$posts = [];
+
+		foreach ( $terms as $term ) {
+			$posts[ (string) $term->term_id ][] = (int) $term->object_id;
+		}
+
+		return $posts;
+	}
+
 	public function render() {
 		$settings = $this->settings;
 		$type     = $this->source_type();
@@ -309,7 +378,21 @@ class Element_Zag_Select extends \Bricks\Element {
 			$source_slug = (string) ( $settings['zagPostType'] ?? '' );
 		}
 
+		$extra = [];
+
+		if ( $type === 'taxonomy' && $this->is_linking() ) {
+			$post_type = (string) ( $settings['zagPostType'] ?? '' );
+			$posts     = self::posts_by_term( $source_slug, $post_type );
+
+			foreach ( $options as &$option ) {
+				$option['posts'] = $posts[ $option['value'] ] ?? [];
+			}
+			unset( $option );
+
+			$extra['link'] = [ 'postType' => $post_type ];
+		}
+
 		// No query, no filter state — nothing to restore a selection from.
-		render_zag_select( $this, $options, [], $multiple, "form-field-{$this->id}", $placeholder, $type, $source_slug );
+		render_zag_select( $this, $options, [], $multiple, "form-field-{$this->id}", $placeholder, $type, $source_slug, $extra );
 	}
 }

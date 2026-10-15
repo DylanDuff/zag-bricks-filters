@@ -165,6 +165,7 @@ committed** so the plugin works from a plain checkout.
 | `search.js` | Smart search: parses a sentence and drives the filters above |
 | `active-filters.js` | Chips for whatever those filters currently hold |
 | `group.js` | Reads nested Zag elements' values into an arbitrary JS callback on submit |
+| `link.js` / `link-core.js` | Linked selects: hides options in a group's taxonomy selects that share no posts with a sibling's pick |
 | `builder-preview.js` | The Bricks builder canvas opt-in — see "Invisible in the builder canvas" below |
 
 Note `src/bricks.js` is **ours** — the adapter layer named for what it talks to.
@@ -633,7 +634,11 @@ production. **A green run against a stale stub proves nothing** — update the
 stubs when Bricks changes which controls sit behind which name, or how a sort
 value parses.
 
-**The frontend has no tests at all.** The smart search's matching, vocabulary
+`node --test tests/link-core.test.mjs` covers the linked-select rule
+(`src/link-core.js`), which was split from its DOM shell (`src/link.js`) for
+exactly this reason. `pnpm test` runs both suites.
+
+**The rest of the frontend has no tests.** The smart search's matching, vocabulary
 and reconciliation are pure functions and would run under `node --test` with no
 new dependencies, but they currently share a module with the DOM wiring, which
 touches `document` at evaluation. Splitting `src/search.js` into a pure

@@ -43,6 +43,7 @@ in project memory for the earlier, abandoned filter-targeting design.
 |---|---|
 | Function | Global function name, dot-path resolved off `window` at submit time, e.g. `myApp.onSubmit`. Called as `fn(values, meta)` |
 | Trigger selector | Optional CSS selector. Clicking anything matching it, anywhere on the page, submits this group |
+| Link select options | Opt-in. Narrows the group's taxonomy selects against each other; see below |
 
 Everything else on the panel — Layout, Background, Border, etc. — is Bricks'
 standard container styling, inherited by extending `\Bricks\Element_Container`
@@ -126,6 +127,41 @@ at.
   click that matched no nested button). Whichever matches,
   `event.preventDefault()` follows — the whole point of either is "submit,"
   never "navigate," which matters for a bare Bricks button/link.
+
+## Linked selects
+
+With **Link select options** on, choosing an option in one nested
+[`zag-select`](select.md) with a Taxonomy source hides every option in its
+sibling selects that shares no published posts with it. With a location
+select (`location-tag`) and a service select (`service-type`) over the same
+`location` posts, picking a location leaves only the services offered there,
+and picking a service leaves only the locations offering it.
+
+- **The rule.** An option stays visible if it shares at least one post with
+  every *other* select that has a selection. A multi-selection counts as the
+  union of its options. A select never narrows itself, so the visitor can
+  always switch to another option in the select they last used, and clearing
+  a selection brings its siblings' options back.
+- **A selected option is never hidden**, even when a later pick in a third
+  select rules it out, so nothing is ever selected that can't be seen.
+- **Post type.** Selects only constrain each other when their **Post type**
+  setting matches (shown for a taxonomy source, optional there). Left empty,
+  every post type the taxonomy is registered for counts.
+- **Cost.** Each linked select adds two queries per page render (the post ids
+  carrying any of its terms, then their term relationships) and ships each
+  term's post ids in its `data-zag-select` payload. Fine for a directory;
+  think before linking over tens of thousands of posts.
+- **How the server knows.** `Element_Zag_Group::render()` pushes its setting
+  onto a static stack around `parent::render()`, which is where Bricks renders
+  the children, and `Element_Zag_Select::is_linking()` reads the top. That
+  works inside templates and components, which a page-data lookup would not.
+  The builder renders elements one at a time, so linking never runs there.
+- **Hidden, not disabled-looking.** A hidden option gets `hidden` on its
+  `<li>` and native `<option>`, and is also reported as disabled to the Zag
+  collection, so keyboard navigation and typeahead skip it.
+
+`zag-filter-select` is not linked. It narrows through Bricks' own option
+counts when it targets a query.
 
 ## Known limitations
 

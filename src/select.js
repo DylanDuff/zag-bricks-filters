@@ -2,6 +2,7 @@ import { VanillaMachine, normalizeProps, spreadProps } from '@zag-js/vanilla'
 import * as select from '@zag-js/select'
 
 import { applyFilter, emitChange, getFilterInstance, insertControl, mounted, register, seedFilterInstance, toArray, updateCaption } from './bricks.js'
+import { scheduleRelink } from './link.js'
 
 /**
  * Zag select UI over a Bricks query filter.
@@ -28,11 +29,18 @@ export function mountSelect(root) {
 
 	seedFilterInstance(filterInstance, multiple ? initial : initial[0] || '', multiple ? [] : '')
 
+	/**
+	 * Values a linked sibling has ruled out (src/link.js). Read live by the
+	 * collection, so a hidden option is also skipped by keyboard navigation and
+	 * typeahead rather than merely invisible.
+	 */
+	let hidden = new Set()
+
 	const collection = select.collection({
 		items: config.items || [],
 		itemToString: (item) => item.label,
 		itemToValue: (item) => item.value,
-		isItemDisabled: (item) => !!item.disabled
+		isItemDisabled: (item) => !!item.disabled || hidden.has(String(item.value))
 	})
 
 	/**
@@ -88,6 +96,11 @@ export function mountSelect(root) {
 		parts,
 		multiple,
 		filterInstance,
+		isHidden: (value) => hidden.has(String(value)),
+		setHidden: (values) => {
+			hidden = new Set(values || [])
+			instance.render()
+		},
 		adapter: {
 			getValue: () => api().value || [],
 			setValue: (value) => api().setValue(toArray(value)),
@@ -141,6 +154,10 @@ export function mountSelect(root) {
 	instance.render()
 
 	register(instance)
+
+	if (config.link) {
+		scheduleRelink(root)
+	}
 }
 
 /**
@@ -249,6 +266,14 @@ function render(instance, api) {
 	parts.items.forEach(({ el, check, item }) => {
 		spreadProps(el, api.getItemProps({ item }))
 		spreadProps(check, api.getItemIndicatorProps({ item }))
+		el.hidden = instance.isHidden(item.value)
+	})
+
+	// Keep the fallback control honest about what can be picked.
+	Array.from(instance.native.options).forEach((option) => {
+		if (option.value !== '') {
+			option.hidden = instance.isHidden(option.value)
+		}
 	})
 
 	const values = api.value || []
