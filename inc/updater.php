@@ -8,9 +8,11 @@
  * to the release, not GitHub's auto-generated source archive, which would ship
  * ref/, src/, tests/ and docs/ and unpack into a folder named after the tag.
  *
- * The repository is public, so no access token is configured. If it ever goes
- * private, `setAuthentication()` needs a token, and that token must come from
- * wp-config.php or the environment, never from a file in this repository.
+ * The repository is private, so GitHub answers every unauthenticated request
+ * with a 404 and the checker sees no updates. Each site therefore needs a
+ * read-only token: define `ZAG_GITHUB_TOKEN` in wp-config.php, or set it in the
+ * environment. It must never be committed to this repository. Without one the
+ * checker is still registered, it just never finds a release.
  */
 
 namespace Zag;
@@ -31,3 +33,9 @@ $zag_update_checker = PucFactory::buildUpdateChecker(
 
 $zag_update_checker->setBranch( 'main' );
 $zag_update_checker->getVcsApi()->enableReleaseAssets();
+
+$zag_github_token = defined( 'ZAG_GITHUB_TOKEN' ) ? ZAG_GITHUB_TOKEN : getenv( 'ZAG_GITHUB_TOKEN' );
+
+if ( $zag_github_token ) {
+	$zag_update_checker->setAuthentication( $zag_github_token );
+}
