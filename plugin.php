@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Zag Filters for Bricks
  * Description: Bricks query filter elements built on Zag.js state machines.
- * Version: 0.1.0
+ * Version: 0.2.0
  * Requires PHP: 7.4
  * Author: Dylan
  * Text Domain: zag
