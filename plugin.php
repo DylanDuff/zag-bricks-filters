@@ -60,7 +60,7 @@ new Keyword_Search();
 add_action(
 	'init',
 	function () {
-		if ( ! class_exists( '\Bricks\Elements' ) || ! class_exists( '\Bricks\Filter_Element' ) ) {
+		if ( ! class_exists( '\Bricks\Elements' ) || ! class_exists( '\Bricks\Filter_Element' ) || ! class_exists( '\Bricks\Element_Container' ) ) {
 			return;
 		}
 
@@ -110,6 +110,14 @@ add_action(
 			ZAG_PATH . 'inc/elements/select.php',
 			'zag-select',
 			__NAMESPACE__ . '\Element_Zag_Select'
+		);
+
+		// Extends \Bricks\Element_Container, not \Bricks\Element like the
+		// others above — nestable, and holds no filter value of its own either.
+		\Bricks\Elements::register_element(
+			ZAG_PATH . 'inc/elements/group.php',
+			'zag-group',
+			__NAMESPACE__ . '\Element_Zag_Group'
 		);
 	},
 	20

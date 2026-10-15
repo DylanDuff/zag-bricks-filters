@@ -50,6 +50,18 @@ The smart search's opt-in keyword pass does not change that. It adds query vars
 from a hook of its own (`Keyword_Search`, below); the element still registers no
 filter and holds no value.
 
+**`zag-group` is a third exception, for a different reason.** It doesn't drive
+or display filters at all — it's a nestable container that reads whatever Zag
+elements are dropped inside it and hands their values to an arbitrary JS
+function on submit, for building UI that has nothing to do with a query. It
+extends `\Bricks\Element_Container`, not `\Bricks\Element` — the same base
+Bricks' own Div/Block use — which is what makes it nestable and is the first
+use of that pattern in this plugin. A nested `zag-filter-select` needs no
+target query to work inside a group: see `src/select.js`, where a missing
+`filterInstance` is guarded everywhere it would drive a query, but the machine,
+`adapter.getValue()` and `adapter.describe()` all still work. See
+`docs/group.md`.
+
 **`zag-select` is a fourth exception**, and the reason a nested
 `zag-filter-select` needs no target query still isn't enough on its own: the
 filter element also unconditionally requires a **Source**
@@ -152,6 +164,7 @@ committed** so the plugin works from a plain checkout.
 | `datepicker.js` | Date picker machine, calendar views, flatpickr shim |
 | `search.js` | Smart search: parses a sentence and drives the filters above |
 | `active-filters.js` | Chips for whatever those filters currently hold |
+| `group.js` | Reads nested Zag elements' values into an arbitrary JS callback on submit |
 | `builder-preview.js` | The Bricks builder canvas opt-in — see "Invisible in the builder canvas" below |
 
 Note `src/bricks.js` is **ours** — the adapter layer named for what it talks to.

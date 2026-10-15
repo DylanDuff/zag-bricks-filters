@@ -4,6 +4,8 @@ import { mountDatepicker } from './datepicker.js'
 import { mountSearch, searchInstances } from './search.js'
 import { activeFilterInstances, mountActiveFilters } from './active-filters.js'
 import { shouldMount } from './builder-preview.js'
+// Registers its own click listener; nothing to mount, so no runner below.
+import './group.js'
 
 /**
  * Entry point.
