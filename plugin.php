@@ -5,6 +5,7 @@
  * Version: 0.2.0
  * Requires PHP: 7.4
  * Author: Dylan
+ * GitHub URI: https://github.com/DylanDuff/zag-filters-for-bricks
  * Text Domain: zag
  */
 
@@ -41,6 +42,7 @@ require_once ZAG_PATH . 'inc/builder-preview.php';
 require_once ZAG_PATH . 'inc/select-shared.php';
 require_once ZAG_PATH . 'inc/query-filters-bridge.php';
 require_once ZAG_PATH . 'inc/keyword-search.php';
+require_once ZAG_PATH . 'inc/updater.php';
 
 new Query_Filters_Bridge();
 

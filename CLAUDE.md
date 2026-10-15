@@ -657,3 +657,28 @@ touches `document` at evaluation. Splitting `src/search.js` into a pure
   `Elements::init_elements()` on `init` at priority 10, so anything earlier
   fatals on the missing parent class.
 - `pnpm` with a 15-day minimum release age (`.npmrc`).
+
+## Releases and updates
+
+Installed copies update over the air from GitHub releases, the same way as
+wp-toolkit. `inc/updater.php` wires the vendored Plugin Update Checker
+(`plugin-update-checker/`, upstream v5.6, unmodified; don't edit it) to this
+repository's `main` branch with release assets enabled.
+
+```bash
+bash release.sh patch "Changelog entry"   # or minor|major|x.y.z
+```
+
+Run from a clean `main`. It rebuilds the bundle and runs the PHP tests first,
+refusing to release a stale `assets/js`, then bumps `Version:` in `plugin.php`,
+commits and pushes, and creates a `vX.Y.Z` GitHub release with
+`zag-filters-for-bricks-X.Y.Z.zip` attached. Needs `gh` (authenticated) and
+`zip`.
+
+Only `plugin.php`, `assets/`, `inc/` and `plugin-update-checker/` are packaged.
+The zip's top-level folder is the plugin slug, so it must stay
+`zag-filters-for-bricks` or WordPress installs the update beside the old copy.
+
+The repository is public, so the updater needs no token. If that changes, the
+token goes in `wp-config.php` or the environment and is passed to
+`setAuthentication()`, never committed.
