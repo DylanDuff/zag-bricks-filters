@@ -133,19 +133,29 @@ class Element_Zag_Select extends \Bricks\Element {
 			'required' => [ 'zagSourceType', '=', 'taxonomy' ],
 		];
 
-		/**
-		 * Shown for a taxonomy source too, where it is optional and only read
-		 * when linking: it limits which posts count when this select narrows its
-		 * siblings in a group (link_config()). Linked selects must agree on it.
-		 */
 		$this->controls['zagPostType'] = [
 			'group'       => 'zagSource',
 			'type'        => 'select',
 			'label'       => esc_html__( 'Post type', 'zag' ),
 			'options'     => $this->post_type_options(),
 			'placeholder' => esc_html__( 'Select', 'zag' ),
-			'desc'        => esc_html__( 'For a taxonomy source: optional, and only used by a group with Link select options on. Selects linked together must share a post type.', 'zag' ),
-			'required'    => [ 'zagSourceType', '=', [ 'taxonomy', 'post' ] ],
+			'required'    => [ 'zagSourceType', '=', 'post' ],
+		];
+
+		/**
+		 * Its own key, not zagPostType. A select switched from Posts to
+		 * Taxonomy keeps its old, now hidden, zagPostType, and reading that
+		 * here limited linking to a post type the terms might not be on at all:
+		 * every option came back with no posts, so any pick hid everything.
+		 */
+		$this->controls['zagLinkPostType'] = [
+			'group'       => 'zagSource',
+			'type'        => 'select',
+			'label'       => esc_html__( 'Link by post type', 'zag' ),
+			'options'     => $this->post_type_options(),
+			'placeholder' => esc_html__( 'Any', 'zag' ),
+			'desc'        => esc_html__( 'Only used in a group with Link select options on. Leave empty to count every post type this taxonomy is on.', 'zag' ),
+			'required'    => [ 'zagSourceType', '=', 'taxonomy' ],
 		];
 
 		// Shared with zag-filter-select. See inc/select-shared.php.
@@ -288,24 +298,33 @@ class Element_Zag_Select extends \Bricks\Element {
 	 *
 	 * @return array<string, int[]>
 	 */
-	public static function posts_by_term( $taxonomy, $post_type ) {
+	public static function posts_by_term( $taxonomy, $post_type, array $term_ids ) {
 		$taxonomy_object = get_taxonomy( $taxonomy );
+		$term_ids        = array_values( array_filter( array_map( 'intval', $term_ids ) ) );
 
-		if ( ! $taxonomy_object ) {
+		if ( ! $taxonomy_object || ! $term_ids ) {
 			return [];
 		}
 
+		/**
+		 * The rendered terms by id, rather than an EXISTS clause: the same
+		 * IN shape every taxonomy filter uses, and children excluded so a parent
+		 * term only claims the posts actually tagged with it.
+		 */
 		$ids = get_posts(
 			[
-				'post_type'        => $post_type !== '' ? $post_type : $taxonomy_object->object_type,
-				'post_status'      => 'publish',
-				'numberposts'      => -1,
-				'fields'           => 'ids',
-				'no_found_rows'    => true,
-				'tax_query'        => [
+				'post_type'           => $post_type !== '' ? $post_type : ( $taxonomy_object->object_type ?: 'any' ),
+				'post_status'         => 'publish',
+				'numberposts'         => -1,
+				'fields'              => 'ids',
+				'no_found_rows'       => true,
+				'ignore_sticky_posts' => true,
+				'tax_query'           => [
 					[
-						'taxonomy' => $taxonomy,
-						'operator' => 'EXISTS',
+						'taxonomy'         => $taxonomy,
+						'field'            => 'term_id',
+						'terms'            => $term_ids,
+						'include_children' => false,
 					],
 				],
 			]
@@ -329,6 +348,7 @@ class Element_Zag_Select extends \Bricks\Element {
 
 		return $posts;
 	}
+
 
 	public function render() {
 		$settings = $this->settings;
@@ -381,8 +401,8 @@ class Element_Zag_Select extends \Bricks\Element {
 		$extra = [];
 
 		if ( $type === 'taxonomy' && $this->is_linking() ) {
-			$post_type = (string) ( $settings['zagPostType'] ?? '' );
-			$posts     = self::posts_by_term( $source_slug, $post_type );
+			$post_type = (string) ( $settings['zagLinkPostType'] ?? '' );
+			$posts     = self::posts_by_term( $source_slug, $post_type, array_column( $options, 'value' ) );
 
 			foreach ( $options as &$option ) {
 				$option['posts'] = $posts[ $option['value'] ] ?? [];
