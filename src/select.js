@@ -62,6 +62,13 @@ export function mountSelect(root) {
 		multiple,
 		closeOnSelect: !multiple,
 		/**
+		 * A linked single select has to be clearable: its pick narrows the
+		 * group's other selects, and with no way to clear it the visitor could
+		 * only swap one constraint for another. Clicking the chosen option
+		 * again clears it.
+		 */
+		deselectable: !!config.link,
+		/**
 		 * defaultValue, not value.
 		 *
 		 * `value` makes the machine controlled: it defers to the prop and never
