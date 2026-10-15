@@ -137,6 +137,7 @@ committed** so the plugin works from a plain checkout.
 | `datepicker.js` | Date picker machine, calendar views, flatpickr shim |
 | `search.js` | Smart search: parses a sentence and drives the filters above |
 | `active-filters.js` | Chips for whatever those filters currently hold |
+| `builder-preview.js` | The Bricks builder canvas opt-in — see "Invisible in the builder canvas" below |
 
 Note `src/bricks.js` is **ours** — the adapter layer named for what it talks to.
 Bricks' own filter runtime is `themes/bricks/assets/js/filters.js`, and nothing
@@ -213,6 +214,130 @@ The script is inline and unconditional because it must beat first paint, and
 Bricks renders elements during the body — at `wp_head` there is no way to know
 whether the page has one. Without JS the class never appears and the native
 controls render untouched.
+
+### Invisible in the builder canvas
+
+Every Zag element rendered as **nothing** in the Bricks builder — not
+non-interactive, not unstyled, just blank space — until this was diagnosed and
+fixed. Two independent, individually reasonable choices collided:
+
+1. `zag-filters.js`'s `BricksFunction` runners set `frontEndOnly: true`,
+   copying the pattern Bricks' own interactive elements use to avoid fighting
+   the canvas' click-to-select handling. Bricks enforces that flag by checking
+   for a `bricks-is-frontend` **body class**, which never exists in canvas —
+   `bricks_is_frontend()` is literally `!bricks_is_builder()`
+   (`themes/bricks/functions.php:260`) — so `run()` no-ops there
+   (`frontend.js:1472`) and the bundle never mounts at all.
+2. The pre-mount CSS above hides the native control unconditionally once
+   `.zag-js` is set, and that script (above) is printed **unconditionally**,
+   builder included.
+
+Point 1 alone would just make the elements static previews of their native
+fallback — reasonable. Combined with point 2, the native fallback is hidden
+and nothing ever un-hides it, so canvas shows nothing.
+
+**The fix is a per-element mount decision, not a binary one.** The same
+`wp_head` callback also prints `zag-builder` on `<html>` when
+`bricks_is_builder_iframe()` is true (the canvas request specifically, not the
+builder's outer page). Every Zag element additionally carries its own
+**"Preview in builder" checkbox** (`inc/builder-preview.php`,
+`zagBuilderPreview` setting), which — only inside canvas —
+`apply_builder_preview_attribute()` turns into a `data-zag-preview` attribute
+on that one instance's root:
+
+- Real frontend (`zag-builder` absent): mount and hide-until-ready, as always.
+  `data-zag-preview` is never rendered here at all.
+- Canvas, box unchecked: **don't** mount, and the stylesheet skips the
+  pre-mount hide for that element (`assets/css/zag-filters.css`'s pre-mount
+  rules all read `:not(.zag-builder)` / `.zag-builder[data-zag-preview]`), so
+  the plain native control shows instead of nothing.
+- Canvas, box checked: mount that one instance for real — the actual styled
+  UI, fully interactive, including firing real filter AJAX requests on click.
+
+It's a **per-element** setting rather than a page-wide toggle on purpose: an
+editor usually wants to preview the one control they're actively styling, not
+turn every Zag element on the page into a live, request-firing control while
+editing something unrelated.
+
+`makeRunner()` (`zag-filters.js`) sets `frontEndOnly: false` and gates
+`eachElement` on `shouldMount(element)` (`builder-preview.js`) instead, since
+`frontEndOnly: true` blocks `run()` itself — gating inside `eachElement` alone
+would never be reached. `shouldMount()` just checks
+`element.hasAttribute('data-zag-preview')` once `.zag-builder` says we're in
+canvas at all.
+
+`zag_builder_preview_control()` is merged into every element's controls the
+same way the other shared control builders are: through `zag_select_controls()`
+for the two select-shared elements (`inc/select-shared.php`, so
+`zag-filter-select`, `zag-sort` and `zag-select` all get it from one place),
+and added individually in `filter-datepicker.php`, `smart-search.php` and
+`active-filters.php`. **Not** on `zag-group` — it renders no native/enhanced
+dual state of its own to preview, so the control would do nothing there.
+
+**A second, independent bug hid behind the first one.** With the box checked,
+`data-zag-preview` was rendering correctly and `.zag-builder` was present, but
+elements still never mounted — no console error, `window.bricksFunctions`
+showed the runners registered with the right `frontEndOnly: false`, and
+calling `.run()` on one by hand from the console mounted it immediately. So
+the mount logic itself was fine; `run()` just never got called automatically.
+
+First hypothesis, disproven live rather than assumed: that `startLifecycle()`
+(`bricks.js`) only ever *listening* for `DOMContentLoaded` was the problem,
+because that event had supposedly already fired in canvas by the time the
+script runs. Checking `performance.timing` in the canvas iframe's own console
+context ruled that out directly —
+`domContentLoadedEventEnd - navigationStart` and `loadEventEnd` were both
+normal, few-second values well after `navigationStart`, meaning both events
+fire on the ordinary timeline. The `readyState !== 'loading'` immediate-run
+fallback shipped anyway (free insurance, and it's what the real frontend
+relies on), but it wasn't the actual fix.
+
+**The real cause**, found by ruling out everything else in `functionCanRun()`
+(only `frontEndOnly` and `windowVariableCheck` gate it — `windowVariableCheck`
+was empty, so neither applied) and confirming `window.bricksFunctions` showed
+the runner registered with the right settings: `_initializedElements` on the
+`BricksFunction` instance stayed an empty `Set` even after DOMContentLoaded
+and load had both fired. Bricks' own `run()` adds an element to that set
+*before* calling `eachElement` — unconditionally, regardless of what our own
+`_customEachElement` decides — so an empty set means
+`document.querySelectorAll(selector)` found **zero matches** every time
+`run()` executed automatically. Calling `.run()` by hand afterward mounted it
+immediately, with the element easily found.
+
+Conclusion: canvas populates an element's actual markup into the DOM on a
+timeline of its own, decoupled from the page's own load events — some
+client-side render pass with no equivalent on the real frontend, where the
+server-rendered HTML is simply already there by any of these events. None of
+the four Bricks events already subscribed to
+(`bricks/ajax/pagination/completed`, `load_page/completed`, `popup/loaded`,
+`query_result/displayed`) correspond to whatever that moment actually is, and
+it wasn't worth chasing further given a robust alternative exists.
+
+**Fix**: a debounced `MutationObserver` on `document.documentElement`
+(`childList`, `subtree`), scoped to canvas only via `isBuilderCanvas()`
+(`builder-preview.js`) — the real frontend has never shown this problem, so it
+doesn't pay for watching every DOM mutation on the page. Timing-agnostic by
+construction: it doesn't matter when or how canvas injects the markup, only
+that a mutation happens, at which point `run()` fires again. Safe to call
+repeatedly — `eachElement`'s own dedup guard (`registry.has(element)`) skips
+anything already mounted, so this never double-mounts or fights the
+query-result listener below it.
+
+**Diagnosing this class of bug** (element in canvas, `data-zag-preview`
+present, no console errors, nothing mounts) — all done from the canvas
+iframe's own console context (DevTools' frame dropdown, or `Inspect` from a
+right-click inside canvas):
+
+1. `window.bricksFunctions.filter(f => f?._settings?.selector?.includes('zag'))`
+   — confirms the runners exist with current settings (rules out a stale
+   cached bundle; check `frontEndOnly` reads `false`).
+2. Grab one instance and check `._initializedElements` — empty means
+   `run()` executed but found nothing, which is the signature of this bug.
+3. Call `.run()` on it directly. If that mounts the element, the mount logic
+   itself is fine and the bug is purely about *when* `run()` gets called.
+4. `performance.timing` (as an object, not three separate statements — only
+   the last one's value survives a multi-line console paste) rules
+   DOMContentLoaded/load timing in or out as the cause, rather than assuming.
 
 ### 4. Multi-select values — recovery from the request
 

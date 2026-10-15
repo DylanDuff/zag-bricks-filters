@@ -12,6 +12,8 @@
  * intercepting each path.
  */
 
+import { isBuilderCanvas } from './builder-preview.js'
+
 /**
  * Live instances, keyed by their root element.
  *
@@ -377,10 +379,53 @@ function resync() {
  * post-replacement DOM before anything else re-runs.
  */
 export function startLifecycle(runFns) {
-	document.addEventListener('DOMContentLoaded', () => {
-		// After Bricks' own DOMContentLoaded handler has registered instances.
-		runFns.forEach((run) => run())
-	})
+	const run = () => runFns.forEach((fn) => fn())
+
+	// Covers a script that loads after DOMContentLoaded has already fired —
+	// a listener alone would then never fire. Confirmed live that this is
+	// NOT what happens in the Bricks builder canvas (DOMContentLoaded and
+	// load both fire there, on the normal timeline); kept anyway, since it's
+	// free insurance and is what makes the real frontend work at all.
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', run)
+	} else {
+		run()
+	}
+
+	/**
+	 * Belt-and-braces for the builder canvas specifically.
+	 *
+	 * Confirmed live: in canvas, DOMContentLoaded and load both fire
+	 * normally, `functionCanRun()` has nothing else gating it (frontEndOnly
+	 * is false, windowVariableCheck is empty), and yet a freshly loaded
+	 * canvas still mounts nothing — `_initializedElements` stays empty,
+	 * meaning `document.querySelectorAll(selector)` found zero matches when
+	 * `run()` executed. The only explanation left is that canvas populates
+	 * an element's actual markup into the DOM on a timeline of its own,
+	 * decoupled from the page's own load events — plausibly a client-side
+	 * render pass with no equivalent on the real frontend, where the HTML is
+	 * simply already there. None of the four Bricks events already
+	 * subscribed to below correspond to whatever that moment is.
+	 *
+	 * Rather than chase the exact internal event, watch the DOM directly:
+	 * mutations are timing-agnostic by definition. Debounced because canvas
+	 * can mutate continuously while someone edits nearby content; re-running
+	 * is otherwise cheap and always safe — eachElement's own dedup guard
+	 * (`registry.has(element)`) skips anything already mounted, so an extra
+	 * call here never double-mounts or fights the query-result listener
+	 * below.
+	 *
+	 * Scoped to canvas only — the real frontend has never shown this
+	 * problem, so it doesn't need the extra overhead of watching every DOM
+	 * mutation on the page.
+	 */
+	if (isBuilderCanvas()) {
+		let mutationTimer
+		new MutationObserver(() => {
+			clearTimeout(mutationTimer)
+			mutationTimer = setTimeout(run, 50)
+		}).observe(document.documentElement, { childList: true, subtree: true })
+	}
 
 	document.addEventListener('bricks/ajax/query_result/displayed', () => {
 		// Reap first so resync only ever sees live instances, then mount
@@ -388,7 +433,7 @@ export function startLifecycle(runFns) {
 		// and will re-run after us; the mounted guard makes that a no-op.
 		reap()
 		resync()
-		runFns.forEach((run) => run())
+		run()
 
 		// Only now is `mounted` an accurate picture of the page.
 		settledCallbacks.forEach((callback) => callback())

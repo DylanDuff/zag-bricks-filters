@@ -57,6 +57,14 @@
  * The caveat: if the class is set but the bundle then fails to load, these
  * elements stay blank. That is the standard trade of the js-class pattern, and
  * the bundle is enqueued by the same element that renders them.
+ *
+ * `.zag-builder` (the Bricks builder canvas) is excluded per element unless
+ * that element's own `[data-zag-preview]` is also set: the bundle
+ * deliberately never mounts an element in canvas without that opt-in (see
+ * src/zag-filters.js), so hiding its native control there would hide it
+ * forever rather than briefly. `data-zag-preview` comes from each element's
+ * "Preview in builder" checkbox (inc/builder-preview.php); `.zag-builder`
+ * comes from plugin.php's wp_head callback.
  */
 
 /**
@@ -72,8 +80,10 @@
  * `height`, not `min-height`: a `<select multiple>` sizes itself to its options
  * and would otherwise reserve several rows' worth of space.
  */
-.zag-js .zag-select:not([data-zag-ready]) .zag-select__native,
-.zag-js .zag-datepicker:not([data-zag-ready]) .zag-datepicker__native {
+.zag-js:not(.zag-builder) .zag-select:not([data-zag-ready]) .zag-select__native,
+.zag-js.zag-builder .zag-select[data-zag-preview]:not([data-zag-ready]) .zag-select__native,
+.zag-js:not(.zag-builder) .zag-datepicker:not([data-zag-ready]) .zag-datepicker__native,
+.zag-js.zag-builder .zag-datepicker[data-zag-preview]:not([data-zag-ready]) .zag-datepicker__native {
 	visibility: hidden;
 	appearance: none;
 	-webkit-appearance: none;
@@ -91,13 +101,16 @@
  * The select's icon is server-rendered ahead of the native control and only
  * moves into the trigger on mount, so it would otherwise sit above the field.
  */
-.zag-js .zag-select:not([data-zag-ready]) .zag-select__icon {
+.zag-js:not(.zag-builder) .zag-select:not([data-zag-ready]) .zag-select__icon,
+.zag-js.zag-builder .zag-select[data-zag-preview]:not([data-zag-ready]) .zag-select__icon {
 	display: none;
 }
 
 /* Nothing to report yet — the caption's text is written on mount. */
-.zag-js .zag-select:not([data-zag-ready]) .zag-select__caption,
-.zag-js .zag-datepicker:not([data-zag-ready]) .zag-datepicker__caption {
+.zag-js:not(.zag-builder) .zag-select:not([data-zag-ready]) .zag-select__caption,
+.zag-js.zag-builder .zag-select[data-zag-preview]:not([data-zag-ready]) .zag-select__caption,
+.zag-js:not(.zag-builder) .zag-datepicker:not([data-zag-ready]) .zag-datepicker__caption,
+.zag-js.zag-builder .zag-datepicker[data-zag-preview]:not([data-zag-ready]) .zag-datepicker__caption {
 	visibility: hidden;
 }
 

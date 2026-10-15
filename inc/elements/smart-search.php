@@ -204,6 +204,9 @@ class Element_Zag_Smart_Search extends \Bricks\Element {
 			'desc'        => esc_html__( 'Keeps the typed sentence across reloads and back/forward.', 'zag' ),
 		];
 
+		// See inc/builder-preview.php.
+		$this->controls['zagBuilderPreview'] = zag_builder_preview_control();
+
 		$this->controls['zagVocabularyInfo'] = [
 			'group'   => 'zagVocabulary',
 			'type'    => 'info',
@@ -372,6 +375,9 @@ class Element_Zag_Smart_Search extends \Bricks\Element {
 		];
 
 		$input_id = "zag-search-{$this->id}";
+
+		// See inc/builder-preview.php.
+		apply_builder_preview_attribute( $this );
 
 		$this->set_attribute( '_root', 'class', 'zag-search' );
 		$this->set_attribute( '_root', 'data-zag-search', wp_json_encode( $config ) );

@@ -37,6 +37,7 @@ function version() {
 
 require_once ZAG_PATH . 'inc/element-map.php';
 require_once ZAG_PATH . 'inc/style-controls.php';
+require_once ZAG_PATH . 'inc/builder-preview.php';
 require_once ZAG_PATH . 'inc/query-filters-bridge.php';
 require_once ZAG_PATH . 'inc/keyword-search.php';
 
@@ -134,12 +135,39 @@ function asset_version( $relative_path ) {
  *
  * Deliberately not wrapped in a feature check — without JS the class is never
  * added and every native control stays exactly as rendered.
+ *
+ * Also flags the builder canvas here, for the same before-paint reason.
+ *
+ * Bricks' own interactive elements set `frontEndOnly: true` on their
+ * BricksFunction runners to avoid fighting the canvas' click-to-select
+ * handling, and zag-filters.js copies that (see src/zag-filters.js). Bricks
+ * enforces it by checking `document.body.classList.contains('bricks-is-frontend')`
+ * — a class that never exists in canvas (`bricks_is_frontend()` is literally
+ * `!bricks_is_builder()`) — so the Zag bundle never mounts there either. That
+ * collided with the line above: `.zag-js` still gets added in canvas, hiding
+ * the native control via the pre-mount CSS, and nothing ever reveals it. The
+ * elements were never invisible on the real frontend; only in canvas, and only
+ * because of this interaction.
+ *
+ * `zag-builder` tells the stylesheet to skip the pre-mount hide by default, so
+ * canvas shows the plain native control instead of nothing. Each element then
+ * has its own "Preview in builder" checkbox (inc/builder-preview.php) that
+ * renders a `data-zag-preview` attribute on that one instance — per element,
+ * not page-wide, since an editor usually wants to check the one control
+ * they're actively styling, not turn every Zag element on the page into a
+ * live, request-firing control while they edit. The stylesheet and
+ * src/builder-preview.js's shouldMount() both read that attribute together
+ * with `.zag-builder` to decide, per element, whether to hide-until-ready
+ * (preview on) or show the native fallback outright (preview off).
  */
 add_action(
 	'wp_head',
 	function () {
+		$is_builder_iframe = function_exists( 'bricks_is_builder_iframe' ) && bricks_is_builder_iframe();
+
 		wp_print_inline_script_tag(
-			"document.documentElement.classList.add('zag-js')",
+			"document.documentElement.classList.add('zag-js');"
+			. ( $is_builder_iframe ? "document.documentElement.classList.add('zag-builder');" : '' ),
 			[ 'id' => 'zag-js-flag' ]
 		);
 	},

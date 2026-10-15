@@ -269,6 +269,9 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			'placeholder' => esc_html__( 'Below', 'zag' ),
 		];
 
+		// See inc/builder-preview.php.
+		$this->controls['zagBuilderPreview'] = zag_builder_preview_control();
+
 		$this->controls = array_merge(
 			$this->controls,
 			group_controls(
@@ -385,6 +388,9 @@ class Element_Zag_Filter_Datepicker extends \Bricks\Filter_Element {
 			'min'         => $this->min_date ? gmdate( 'Y-m-d', $this->min_date ) : null,
 			'max'         => $this->max_date ? gmdate( 'Y-m-d', $this->max_date ) : null,
 		];
+
+		// See inc/builder-preview.php.
+		apply_builder_preview_attribute( $this );
 
 		$this->set_attribute( '_root', 'class', 'zag-datepicker' );
 		$this->set_attribute( '_root', 'data-zag-datepicker', wp_json_encode( $config ) );

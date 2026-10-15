@@ -148,6 +148,9 @@ class Element_Zag_Active_Filters extends \Bricks\Element {
 			'desc'        => esc_html__( 'Screen reader wording. The chip text is appended to it.', 'zag' ),
 		];
 
+		// See inc/builder-preview.php.
+		$this->controls['zagBuilderPreview'] = zag_builder_preview_control();
+
 		$style = array_merge( shared_style_controls(), active_filters_style_controls() );
 
 		foreach ( self::UNUSED_STYLE_CONTROLS as $key ) {
@@ -192,6 +195,9 @@ class Element_Zag_Active_Filters extends \Bricks\Element {
 			'clearAllText' => $clear_all_text,
 			'removeText'   => $remove_text,
 		];
+
+		// See inc/builder-preview.php.
+		apply_builder_preview_attribute( $this );
 
 		$this->set_attribute( '_root', 'class', 'zag-active-filters' );
 		$this->set_attribute( '_root', 'data-zag-active-filters', wp_json_encode( $config ) );

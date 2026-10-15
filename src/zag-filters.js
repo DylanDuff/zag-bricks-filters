@@ -3,6 +3,7 @@ import { mountSelect } from './select.js'
 import { mountDatepicker } from './datepicker.js'
 import { mountSearch, searchInstances } from './search.js'
 import { activeFilterInstances, mountActiveFilters } from './active-filters.js'
+import { shouldMount } from './builder-preview.js'
 
 /**
  * Entry point.
@@ -11,15 +12,23 @@ import { activeFilterInstances, mountActiveFilters } from './active-filters.js'
  * tracks which nodes it has already handled and re-runs on
  * bricks/ajax/query_result/displayed, which is what picks up the replacement
  * node after Bricks swaps a filter element out.
+ *
+ * frontEndOnly is Bricks' own switch for "never in the builder canvas" and is
+ * deliberately false here: shouldMount() (src/builder-preview.js) replaces it
+ * with a per-element version — always on the real frontend, opt-in per
+ * instance in canvas via that element's own "Preview in builder" setting —
+ * because Bricks' binary version is what made every Zag element invisible in
+ * the builder rather than just non-interactive. See plugin.php's wp_head
+ * callback for the full chain.
  */
 
 function makeRunner(selector, mount, registry = mounted) {
 	const fn = new window.BricksFunction({
 		parentNode: document,
 		selector,
-		frontEndOnly: true,
+		frontEndOnly: false,
 		eachElement: (element) => {
-			if (registry.has(element)) {
+			if (!shouldMount(element) || registry.has(element)) {
 				return
 			}
 
