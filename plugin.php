@@ -5,7 +5,7 @@
  * Version: 0.2.0
  * Requires PHP: 7.4
  * Author: Dylan
- * GitHub URI: https://github.com/DylanDuff/zag-filters-for-bricks
+ * GitHub URI: https://github.com/DylanDuff/zag-bricks-filters
  * Text Domain: zag
  */
 
